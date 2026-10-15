@@ -1,0 +1,94 @@
+{
+  "expectedTarballFiles": [
+    "package/LICENSE",
+    "package/README.md",
+    "package/dist/catalog.d.ts",
+    "package/dist/catalog.js",
+    "package/dist/html.d.ts",
+    "package/dist/html.js",
+    "package/dist/index.d.ts",
+    "package/dist/index.js",
+    "package/dist/interaction.d.ts",
+    "package/dist/interaction.js",
+    "package/dist/keymap.d.ts",
+    "package/dist/keymap.js",
+    "package/dist/wire.d.ts",
+    "package/dist/wire.js",
+    "package/docs/api/README.md",
+    "package/docs/api/catalog.md",
+    "package/docs/api/html.md",
+    "package/docs/api/index.md",
+    "package/docs/api/interaction.md",
+    "package/docs/api/wire.md",
+    "package/package.json"
+  ],
+  "runtimeFixture": "test/stranger/runtime.mjs",
+  "typecheckFixture": "test/stranger/consumer.mts",
+  "consumerDevDependencies": {
+    "@opentui/keymap": "0.5.10"
+  },
+  "docs": {
+    "sigil": "write",
+    "home": {
+      "lead": "Define one command once and get a key binding, palette entry, slash command, and AI-agent tool for it, all calling the same typed function and failing the same way.",
+      "example": {
+        "file": "home.ts",
+        "title": "Execute a contributed command",
+        "caption": "Contributes one command, runs it through execute, and prints its handled outcome."
+      },
+      "ladder": {
+        "start": [
+          {
+            "title": "Quickstart",
+            "href": "/quickstart/",
+            "description": "Contribute one command, read the snapshot, and execute it."
+          },
+          {
+            "title": "Core concepts",
+            "href": "/concepts/#core-concepts",
+            "description": "Commands, contributions, leases, and the one door every caller goes through."
+          }
+        ],
+        "tasks": [
+          {
+            "title": "Bind one command to every surface",
+            "href": "/concepts/#snapshots-and-projections",
+            "description": "snapshot() returns six frozen arrays: bindings, palette, slash, help, menu and agent."
+          },
+          {
+            "title": "Give an AI agent a tool",
+            "href": "/api/entry/",
+            "description": "The agent view keeps a typed input/output schema and drops presentation hints."
+          },
+          {
+            "title": "Bind a browser keyboard",
+            "href": "/api/html/",
+            "description": "bindHtmlKeymap wires command projections into a DOM keymap."
+          },
+          {
+            "title": "Load a backend's command catalog",
+            "href": "/api/catalog/",
+            "description": "parseCatalog and catalogCommands turn a whistle.catalog/v1 payload into commands."
+          }
+        ],
+        "reference": [
+          {
+            "title": "API reference",
+            "href": "/api/",
+            "description": "The root entrypoint plus the wire, interaction and catalog subpaths."
+          },
+          {
+            "title": "Install",
+            "href": "/install/",
+            "description": "Zod as the only dependency; the optional @opentui/keymap peer for HTML."
+          },
+          {
+            "title": "Status and limits",
+            "href": "/status/",
+            "description": "Stability, bounds like 64 contributions and 256 commands, and license."
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "extends": "../../tooling/docs/typedoc.base.json",
+  "name": "@fungi.computer/whistle",
+  "entryPoints": [
+    "src/index.ts",
+    "src/wire.ts",
+    "src/interaction.ts",
+    "src/catalog.ts",
+    "src/html.ts"
+  ],
+  "requiredToBeDocumented": [
+    "Enum",
+    "EnumMember",
+    "Variable",
+    "Function",
+    "Class",
+    "Interface",
+    "Method",
+    "Accessor",
+    "TypeAlias"
+  ],
+  "tsconfig": "tsconfig.json",
+  "out": "docs/api"
+}
