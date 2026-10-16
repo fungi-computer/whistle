@@ -1550,3 +1550,38 @@ it("scopes slash aliases per focus scope and lets the focused scope shadow globa
     runtime.execute("second-window:new", { origin: "programmatic" }),
   ).resolves.toEqual({ status: "handled" });
 });
+
+it("projects draft consumption only when the slash command owner requests it", () => {
+  const runtime = createWhistle();
+  runtime.contribute({
+    sourceId: "draft",
+    namespace: "draft",
+    commands: [
+      {
+        id: "inspect",
+        title: "Inspect",
+        category: "Settings",
+        projections: {
+          slash: { aliases: ["inspect", "look"], consumesDraft: true },
+        },
+        handler: () => undefined,
+      },
+      {
+        id: "edit",
+        title: "Edit",
+        category: "Settings",
+        projections: { slash: { aliases: ["edit"] } },
+        handler: () => undefined,
+      },
+    ],
+  });
+  expect(
+    runtime
+      .snapshot()
+      .slash.filter((row) => row.consumesDraft)
+      .map((row) => row.alias),
+  ).toEqual(["inspect", "look"]);
+  expect(
+    runtime.snapshot().slash.find((row) => row.alias === "edit"),
+  ).not.toHaveProperty("consumesDraft");
+});

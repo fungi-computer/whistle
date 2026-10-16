@@ -267,6 +267,8 @@ export type WhistleSlashProjection = WhistleProjectionRow &
   Readonly<{
     /** One slash alias exposed for the command. */
     alias: string;
+    /** Consume the submitted draft before opening the command's interaction. */
+    consumesDraft?: boolean;
     /** How text after the alias becomes arguments, when the command takes any. */
     arguments?: WhistleSlashArguments;
   }>;
@@ -607,6 +609,7 @@ type CopiedAgent = { keybind?: string; order?: number };
 type CopiedOrdered = { order?: number };
 type CopiedSlash = {
   aliases: string[];
+  consumesDraft?: boolean;
   order?: number;
   arguments?: WhistleSlashArguments;
 };
@@ -837,6 +840,8 @@ function copySlash(
     aliases: [...projection.aliases],
   };
   if (projection.order !== undefined) copy.order = projection.order;
+  if (projection.consumesDraft !== undefined)
+    copy.consumesDraft = projection.consumesDraft;
   if (projection.arguments !== undefined)
     copy.arguments = copySlashArguments(projection.arguments);
   return copy;
@@ -1074,7 +1079,7 @@ function snapshotFor(
         });
       if (projections?.slash !== undefined) {
         for (const alias of projections.slash.aliases) {
-          const row = {
+          let row: WhistleSlashProjection = {
             ...projectionRow(
               contribution,
               command,
@@ -1083,11 +1088,11 @@ function snapshotFor(
             ),
             alias,
           };
-          slash.push(
-            projections.slash.arguments === undefined
-              ? row
-              : { ...row, arguments: projections.slash.arguments },
-          );
+          if (projections.slash.consumesDraft !== undefined)
+            row = { ...row, consumesDraft: projections.slash.consumesDraft };
+          if (projections.slash.arguments !== undefined)
+            row = { ...row, arguments: projections.slash.arguments };
+          slash.push(row);
         }
       }
       if (projections?.help !== undefined)

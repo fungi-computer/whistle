@@ -9,22 +9,24 @@ export type ReadonlySchemaValue<T> = T extends (infer Item)[]
     : T;
 
 /** Host-owned availability carried by every discovered agent row. */
-export const WhistleAvailabilitySchema = z.discriminatedUnion("status", [
-  z
-    .object({
-      /** The action can currently be invoked. */
-      status: z.literal("available"),
-    })
-    .strict(),
-  z
-    .object({
-      /** The action cannot currently be invoked. */
-      status: z.literal("unavailable"),
-      /** Host-supplied explanation suitable for presentation to a caller. */
-      reason: z.string(),
-    })
-    .strict(),
-]);
+export const WhistleAvailabilitySchema = z.lazy(() =>
+  z.discriminatedUnion("status", [
+    z
+      .object({
+        /** The action can currently be invoked. */
+        status: z.literal("available"),
+      })
+      .strict(),
+    z
+      .object({
+        /** The action cannot currently be invoked. */
+        status: z.literal("unavailable"),
+        /** Host-supplied explanation suitable for presentation to a caller. */
+        reason: z.string(),
+      })
+      .strict(),
+  ]),
+);
 
 /** The JSON value grammar shared by Whistle transports and App adapters. */
 export const WhistleJsonValueSchema = json;
@@ -34,9 +36,8 @@ export type WhistleJsonValue = ReadonlySchemaValue<
 >;
 
 /** One JSON object, used for action schemas and custom presentation data. */
-export const WhistleJsonObjectSchema = z.record(
-  z.string(),
-  WhistleJsonValueSchema,
+export const WhistleJsonObjectSchema = z.lazy(() =>
+  z.record(z.string(), WhistleJsonValueSchema),
 );
 /** A JSON object accepted at Whistle transport boundaries. */
 export type WhistleJsonObject = ReadonlySchemaValue<
@@ -52,13 +53,15 @@ export const parseJsonObject: typeof WhistleJsonObjectSchema.parse = (value) =>
   WhistleJsonObjectSchema.parse(value);
 
 /** General portable failure data for adapters that cross a transport. */
-export const WhistleFailureSchema = z
-  .object({
-    code: z.string().min(1).max(160),
-    message: z.string().min(1).max(512),
-    details: WhistleJsonValueSchema.optional(),
-  })
-  .strict();
+export const WhistleFailureSchema = z.lazy(() =>
+  z
+    .object({
+      code: z.string().min(1).max(160),
+      message: z.string().min(1).max(512),
+      details: WhistleJsonValueSchema.optional(),
+    })
+    .strict(),
+);
 /** Portable failure data that crosses Whistle transports. */
 export type WhistleFailure = ReadonlySchemaValue<
   z.output<typeof WhistleFailureSchema>
@@ -75,7 +78,9 @@ export type WhistleActionSchema = ReadonlySchemaValue<
   z.output<typeof WhistleActionSchemaSchema>
 >;
 
-const meaningful = z.string().refine((value) => value.trim().length > 0);
+const meaningful = z.lazy(() =>
+  z.string().refine((value) => value.trim().length > 0),
+);
 
 const availabilitySchema = WhistleAvailabilitySchema;
 /** Host-owned availability fact carried in agent snapshots. */
@@ -84,94 +89,102 @@ export type WhistleAvailability = ReadonlySchemaValue<
 >;
 
 /** Validate renderer-neutral presentation data attached to an action. */
-export const WhistleActionPresentationSchema = z.union([
-  z.object({ type: z.literal("action") }).strict(),
-  z
-    .object({
-      type: z.literal("custom"),
-      data: WhistleJsonObjectSchema,
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal("choice"),
-      options: z.array(
-        z.object({
-          value: WhistleJsonValueSchema,
-          label: meaningful,
-          description: meaningful.optional(),
-        }),
-      ),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal("form"),
-      submitLabel: meaningful.optional(),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal("confirmation"),
-      message: meaningful,
-      confirmLabel: meaningful.optional(),
-      cancelLabel: meaningful.optional(),
-    })
-    .strict(),
-]);
+export const WhistleActionPresentationSchema = z.lazy(() =>
+  z.union([
+    z.object({ type: z.literal("action") }).strict(),
+    z
+      .object({
+        type: z.literal("custom"),
+        data: WhistleJsonObjectSchema,
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal("choice"),
+        options: z.array(
+          z.object({
+            value: WhistleJsonValueSchema,
+            label: meaningful,
+            description: meaningful.optional(),
+          }),
+        ),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal("form"),
+        submitLabel: meaningful.optional(),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal("confirmation"),
+        message: meaningful,
+        confirmLabel: meaningful.optional(),
+        cancelLabel: meaningful.optional(),
+      })
+      .strict(),
+  ]),
+);
 /** Renderer-neutral presentation data attached to an action. */
 export type WhistleActionPresentation = ReadonlySchemaValue<
   z.output<typeof WhistleActionPresentationSchema>
 >;
 
 /** Validate the serializable action contract carried by a command. */
-export const WhistleActionDataSchema = z
-  .object({
-    inputSchema: WhistleActionSchemaSchema.optional(),
-    outputSchema: WhistleActionSchemaSchema.optional(),
-    presentation: WhistleActionPresentationSchema.optional(),
-  })
-  .strict();
+export const WhistleActionDataSchema = z.lazy(() =>
+  z
+    .object({
+      inputSchema: WhistleActionSchemaSchema.optional(),
+      outputSchema: WhistleActionSchemaSchema.optional(),
+      presentation: WhistleActionPresentationSchema.optional(),
+    })
+    .strict(),
+);
 /** Serializable action data accepted by Whistle. */
 export type WhistleAction = ReadonlySchemaValue<
   z.output<typeof WhistleActionDataSchema>
 >;
 
-const safeOrder = z
-  .number()
-  .int()
-  .refine((value) => Number.isSafeInteger(value));
+const safeOrder = z.lazy(() =>
+  z
+    .number()
+    .int()
+    .refine((value) => Number.isSafeInteger(value)),
+);
 
 /** Validate aliases and argument mapping metadata for slash commands. */
-export const WhistleSlashArgumentsSchema = z
-  .object({
-    hint: meaningful.pipe(z.string().max(120)),
-    words: z
-      .array(
-        z
-          .object({
-            word: z.string().regex(/^\S{1,64}$/u),
-            description: meaningful.pipe(z.string().max(512)).optional(),
-            arguments: WhistleJsonObjectSchema,
-          })
-          .strict(),
-      )
-      .max(32)
-      .optional(),
-    text: z
-      .object({
-        field: meaningful.pipe(z.string().max(120)),
-        arguments: WhistleJsonObjectSchema,
-        requestIdField: meaningful.pipe(z.string().max(120)).optional(),
-      })
-      .strict()
-      .optional(),
-  })
-  .strict()
-  .refine(
-    (grammar) => grammar.words !== undefined || grammar.text !== undefined,
-    "slash arguments need words or text",
-  );
+export const WhistleSlashArgumentsSchema = z.lazy(() =>
+  z
+    .object({
+      hint: meaningful.pipe(z.string().max(120)),
+      words: z
+        .array(
+          z
+            .object({
+              word: z.string().regex(/^\S{1,64}$/u),
+              description: meaningful.pipe(z.string().max(512)).optional(),
+              arguments: WhistleJsonObjectSchema,
+            })
+            .strict(),
+        )
+        .max(32)
+        .optional(),
+      text: z
+        .object({
+          field: meaningful.pipe(z.string().max(120)),
+          arguments: WhistleJsonObjectSchema,
+          requestIdField: meaningful.pipe(z.string().max(120)).optional(),
+        })
+        .strict()
+        .optional(),
+    })
+    .strict()
+    .refine(
+      (grammar) => grammar.words !== undefined || grammar.text !== undefined,
+      "slash arguments need words or text",
+    ),
+);
 /** Slash command parsing metadata accepted from transport owners. */
 export type WhistleSlashArguments = ReadonlySchemaValue<
   z.output<typeof WhistleSlashArgumentsSchema>
@@ -181,56 +194,61 @@ export type WhistleSlashWord = ReadonlySchemaValue<
   NonNullable<z.output<typeof WhistleSlashArgumentsSchema>["words"]>[number]
 >;
 
-const orderedProjectionSchema = z
-  .object({ order: safeOrder.optional() })
-  .strict();
+const orderedProjectionSchema = z.lazy(() =>
+  z.object({ order: safeOrder.optional() }).strict(),
+);
 /** Validate explicit membership and ordering across Whistle surfaces. */
-export const WhistleCommandProjectionsSchema = z
-  .object({
-    bindings: z
-      .object({
-        order: safeOrder.optional(),
-        values: z.array(meaningful).max(16),
-      })
-      .strict()
-      .optional(),
-    agent: z
-      .object({
-        keybind: meaningful.optional(),
-        order: safeOrder.optional(),
-      })
-      .strict()
-      .optional(),
-    help: orderedProjectionSchema.optional(),
-    menu: orderedProjectionSchema.optional(),
-    palette: orderedProjectionSchema.optional(),
-    slash: z
-      .object({
-        aliases: z.array(meaningful).max(16),
-        order: safeOrder.optional(),
-        arguments: WhistleSlashArgumentsSchema.optional(),
-      })
-      .strict()
-      .optional(),
-  })
-  .strict();
+export const WhistleCommandProjectionsSchema = z.lazy(() =>
+  z
+    .object({
+      bindings: z
+        .object({
+          order: safeOrder.optional(),
+          values: z.array(meaningful).max(16),
+        })
+        .strict()
+        .optional(),
+      agent: z
+        .object({
+          keybind: meaningful.optional(),
+          order: safeOrder.optional(),
+        })
+        .strict()
+        .optional(),
+      help: orderedProjectionSchema.optional(),
+      menu: orderedProjectionSchema.optional(),
+      palette: orderedProjectionSchema.optional(),
+      slash: z
+        .object({
+          aliases: z.array(meaningful).max(16),
+          consumesDraft: z.boolean().optional(),
+          order: safeOrder.optional(),
+          arguments: WhistleSlashArgumentsSchema.optional(),
+        })
+        .strict()
+        .optional(),
+    })
+    .strict(),
+);
 /** Projection membership selected by a semantic command owner. */
 export type WhistleCommandProjections = ReadonlySchemaValue<
   z.output<typeof WhistleCommandProjectionsSchema>
 >;
 
 /** Validate data-only command definitions supplied by an adapter. */
-export const WhistleCommandDefinitionSchema = z
-  .object({
-    id: meaningful.refine((value) => !value.includes(":")),
-    title: meaningful,
-    category: meaningful,
-    description: meaningful.optional(),
-    projections: WhistleCommandProjectionsSchema.optional(),
-    action: WhistleActionDataSchema.optional(),
-    availability: availabilitySchema.optional(),
-  })
-  .strict();
+export const WhistleCommandDefinitionSchema = z.lazy(() =>
+  z
+    .object({
+      id: meaningful.refine((value) => !value.includes(":")),
+      title: meaningful,
+      category: meaningful,
+      description: meaningful.optional(),
+      projections: WhistleCommandProjectionsSchema.optional(),
+      action: WhistleActionDataSchema.optional(),
+      availability: availabilitySchema.optional(),
+    })
+    .strict(),
+);
 /** Data-only command definition accepted at adapter boundaries. */
 export type WhistleCommandDefinition = ReadonlySchemaValue<
   z.output<typeof WhistleCommandDefinitionSchema>
@@ -254,28 +272,32 @@ export const parseCommandDefinition: typeof WhistleCommandDefinitionSchema.parse
   (value) => WhistleCommandDefinitionSchema.parse(value);
 
 /** Semantic action data; client presentation is intentionally not wire data. */
-const WhistleAgentActionSchema = z
-  .object({
-    inputSchema: WhistleActionSchemaSchema.optional(),
-    outputSchema: WhistleActionSchemaSchema.optional(),
-  })
-  .strict();
+const WhistleAgentActionSchema = z.lazy(() =>
+  z
+    .object({
+      inputSchema: WhistleActionSchemaSchema.optional(),
+      outputSchema: WhistleActionSchemaSchema.optional(),
+    })
+    .strict(),
+);
 
 /** One neutral agent row emitted by Whistle's `snapshot.agent` projection. */
-export const WhistleAgentProjectionSchema = z
-  .object({
-    commandId: z.string(),
-    sourceId: z.string(),
-    scope: z.string().optional(),
-    title: z.string(),
-    category: z.string(),
-    description: z.string().optional(),
-    order: z.number(),
-    availability: WhistleAvailabilitySchema,
-    action: WhistleAgentActionSchema.optional(),
-    keybind: z.string().optional(),
-  })
-  .strict();
+export const WhistleAgentProjectionSchema = z.lazy(() =>
+  z
+    .object({
+      commandId: z.string(),
+      sourceId: z.string(),
+      scope: z.string().optional(),
+      title: z.string(),
+      category: z.string(),
+      description: z.string().optional(),
+      order: z.number(),
+      availability: WhistleAvailabilitySchema,
+      action: WhistleAgentActionSchema.optional(),
+      keybind: z.string().optional(),
+    })
+    .strict(),
+);
 /** Decoded agent projection data as received across the wire. */
 export type WhistleAgentProjectionData = z.output<
   typeof WhistleAgentProjectionSchema
@@ -345,28 +367,32 @@ export type WhistlePromptOption = NonNullable<
 >;
 
 /** Validate interaction notices received from a host. */
-export const WhistleNoticeSchema = z.discriminatedUnion("type", [
-  z
-    .object({
-      type: z.literal("info"),
-      message: shortText,
-      links: z
-        .array(z.object({ url: webUrl, label: shortText.optional() }).strict())
-        .max(16)
-        .optional(),
-    })
-    .strict(),
-  z.object({ type: z.literal("progress"), message: shortText }).strict(),
-  z
-    .object({
-      type: z.literal("handoff"),
-      url: webUrl,
-      code: shortText.optional(),
-      message: shortText.optional(),
-    })
-    .strict(),
-  z.object({ type: z.literal("success"), message: shortText }).strict(),
-]);
+export const WhistleNoticeSchema = z.lazy(() =>
+  z.discriminatedUnion("type", [
+    z
+      .object({
+        type: z.literal("info"),
+        message: shortText,
+        links: z
+          .array(
+            z.object({ url: webUrl, label: shortText.optional() }).strict(),
+          )
+          .max(16)
+          .optional(),
+      })
+      .strict(),
+    z.object({ type: z.literal("progress"), message: shortText }).strict(),
+    z
+      .object({
+        type: z.literal("handoff"),
+        url: webUrl,
+        code: shortText.optional(),
+        message: shortText.optional(),
+      })
+      .strict(),
+    z.object({ type: z.literal("success"), message: shortText }).strict(),
+  ]),
+);
 /** A renderer-neutral interaction notice. */
 export type WhistleNotice = ReadonlySchemaValue<
   z.output<typeof WhistleNoticeSchema>

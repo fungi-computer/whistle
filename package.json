@@ -1,6 +1,6 @@
 {
   "name": "@fungi.computer/whistle",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": "Levi <levi@technomancy.dev>",
   "description": "Semantic command graph, projections and wire parsing",
   "type": "module",
