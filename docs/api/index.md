@@ -157,6 +157,7 @@ type WhistleInteraction = Readonly<{
   signal: AbortSignal;
   prompt: <Kind>(prompt, options?) => Promise<WhistlePromptAnswers[Kind]>;
   notify: (notice) => void;
+  run: <Result>(operation) => Promise<Result>;
 }>;
 ```
 
@@ -209,9 +210,9 @@ human execution that has no caller-supplied interaction.
 
 #### Parameters
 
-| Parameter | Type                                                                                 |
-| --------- | ------------------------------------------------------------------------------------ |
-| `request` | `Readonly`\<\{ `commandId`: `string`; `title`: `string`; `retry`: () => `void`; \}\> |
+| Parameter | Type                                                          |
+| --------- | ------------------------------------------------------------- |
+| `request` | `Readonly`\<\{ `commandId`: `string`; `title`: `string`; \}\> |
 
 #### Returns
 
@@ -383,6 +384,7 @@ One palette value projected from a command.
 type WhistleSlashProjection = WhistleProjectionRow &
   Readonly<{
     alias: string;
+    consumesDraft?: boolean;
     arguments?: WhistleSlashArguments;
   }>;
 ```

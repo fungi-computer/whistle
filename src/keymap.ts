@@ -48,21 +48,34 @@ export function createWhistleKeymapAdapter(
 ): WhistleKeymapAdapter {
   const hostKeymap = keymap;
   let dispose: () => void = () => undefined;
+  let projected: readonly WhistleKeymapBinding[] | undefined;
   let cleaned = false;
   const update = () => {
     if (cleaned) return;
-    dispose();
     const snapshot = whistle.snapshot();
-    const commandIds = new Set(snapshot.bindings.map((row) => row.commandId));
     const bindings = snapshot.bindings.map((row) => ({
       cmd: row.commandId,
       key: row.binding,
     }));
+    // Labels and handlers can refresh without changing physical bindings.
+    // Retain that native layer so the SDK keeps its pending sequence.
+    const previous = projected;
+    if (
+      previous?.length === bindings.length &&
+      bindings.every(
+        (row, index) =>
+          row.cmd === previous[index]?.cmd && row.key === previous[index].key,
+      )
+    )
+      return;
+    dispose();
+    const commandIds = new Set(snapshot.bindings.map((row) => row.commandId));
     const commands = [...commandIds].map((commandId) => ({
       name: commandId,
       run: () => whistle.execute(commandId, { origin }).then(executionResult),
     }));
     dispose = hostKeymap.registerLayer({ bindings, commands });
+    projected = bindings;
   };
   update();
   const unsubscribe = whistle.subscribe(update);

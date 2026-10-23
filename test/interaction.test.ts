@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import {
   createWhistle,
@@ -95,6 +95,50 @@ describe("interaction schema", () => {
 });
 
 describe("interaction host", () => {
+  it.each([false, true])(
+    "keeps the normal running message on retry (producer message: %s)",
+    async (explicit) => {
+      const title = "Water the chosen bed";
+      const host = createWhistleInteractionHost({ title });
+      const session = host.begin();
+      const answer = session.interaction.prompt({
+        type: "confirmation",
+        message: "Water Fern?",
+      });
+      host.answer(host.snapshot().prompt?.sequence ?? -1, true);
+      await answer;
+      const message = explicit ? "Watering Fern" : title;
+      if (explicit) session.interaction.notify({ type: "progress", message });
+      const first = Promise.withResolvers<string>();
+      const next = Promise.withResolvers<string>();
+      let attempts = 0;
+      const running = session.interaction.run(() => {
+        attempts += 1;
+        return attempts === 1 ? first.promise : next.promise;
+      });
+      try {
+        expect(host.snapshot().message).toEqual({ type: "progress", message });
+        first.reject(new Error("Watering unavailable"));
+        await vi.waitFor(() => {
+          expect(host.snapshot().retryable).toBe(true);
+        });
+        host.retry();
+        expect(host.snapshot()).toMatchObject({
+          status: "working",
+          message: { type: "progress", message },
+        });
+        next.resolve("watered");
+        await expect(running).resolves.toBe("watered");
+        expect(attempts).toBe(2);
+      } finally {
+        first.resolve("cleanup");
+        next.resolve("cleanup");
+        host.cancel();
+        await Promise.allSettled([running]);
+      }
+    },
+  );
+
   it("walks prompt, answer, handoff and success into snapshots", async () => {
     const ends: WhistleInteractionEnd[] = [];
     const host = createWhistleInteractionHost({
@@ -186,6 +230,20 @@ describe("interaction host", () => {
     expect(host.snapshot().status).toBe("cancelled");
   });
 
+  it("keeps only a line posted after the dismissal as the closing line", () => {
+    const host = createWhistleInteractionHost({ title: "Sign in" });
+    const session = host.begin();
+    session.interaction.notify({ type: "info", message: "Before" });
+    host.cancel();
+    expect(host.snapshot().closing).toBeUndefined();
+    session.interaction.notify({ type: "info", message: "After" });
+    expect(host.snapshot().closing).toEqual({ type: "info", message: "After" });
+    expect(host.snapshot().message).toEqual({
+      type: "info",
+      message: "Before",
+    });
+  });
+
   it("withdraws one prompt without ending the interaction", async () => {
     const host = createWhistleInteractionHost({ title: "Sign in" });
     const session = host.begin();
@@ -202,7 +260,7 @@ describe("interaction host", () => {
     expect(session.interaction.signal.aborted).toBe(false);
   });
 
-  it("keeps a failure visible until retried or dismissed", () => {
+  it("keeps a terminal failure visible until replaced or dismissed", () => {
     const ends: WhistleInteractionEnd[] = [];
     const host = createWhistleInteractionHost({
       title: "Sign in",
@@ -212,11 +270,12 @@ describe("interaction host", () => {
     expect(host.snapshot()).toMatchObject({
       status: "failed",
       failure: "Refused",
+      retryable: false,
     });
-    const retry = host.begin();
+    const next = host.begin();
     expect(host.snapshot()).toMatchObject({ status: "working" });
     expect(host.snapshot().failure).toBeUndefined();
-    retry.settle({ status: "failed", message: "Refused again" });
+    next.settle({ status: "failed", message: "Refused again" });
     host.cancel();
     expect(ends.at(-1)).toEqual({ status: "cancelled" });
   });
@@ -236,6 +295,96 @@ describe("interaction host", () => {
 });
 
 describe("runtime presenter", () => {
+  it("retries a failed operation once per click without replaying the command", async () => {
+    const whistle = createWhistle();
+    const host = createWhistleInteractionHost({
+      title: "A multi-step command",
+    });
+    whistle.present(() => host.begin());
+    let commands = 0;
+    let attempts = 0;
+    const completion = Promise.withResolvers<string>();
+    whistle.contribute({
+      sourceId: "steps",
+      namespace: "steps",
+      commands: [
+        {
+          id: "work",
+          title: "Work",
+          category: "Test",
+          handler: async ({ interaction }) => {
+            if (interaction === undefined)
+              throw new Error("Missing interaction");
+            commands += 1;
+            interaction.notify({ type: "progress", message: "Working" });
+            return interaction.run(() => {
+              attempts += 1;
+              if (attempts < 3) return Promise.reject(new Error("Unavailable"));
+              return completion.promise;
+            });
+          },
+        },
+      ],
+    });
+    const outcome = whistle.execute("steps:work", { origin: "browser" });
+    try {
+      await vi.waitFor(() => {
+        expect(host.snapshot().retryable).toBe(true);
+      });
+      expect(attempts).toBe(1);
+      host.retry();
+      host.retry();
+      await vi.waitFor(() => {
+        expect(host.snapshot().retryable).toBe(true);
+      });
+      expect(attempts).toBe(2);
+      host.retry();
+      host.retry();
+      await vi.waitFor(() => {
+        expect(attempts).toBe(3);
+      });
+      expect(host.snapshot().retryable).toBe(false);
+      expect(commands).toBe(1);
+      completion.resolve("Finished");
+      await expect(outcome).resolves.toEqual({
+        status: "handled",
+        result: "Finished",
+      });
+      expect(host.snapshot().status).toBe("done");
+      host.retry();
+      expect(attempts).toBe(3);
+    } finally {
+      host.cancel();
+      completion.resolve("Finished");
+      await outcome;
+      whistle.close();
+    }
+  });
+
+  it.each(["dismiss", "replace"])(
+    "%s releases a failed operation and cannot resurrect it",
+    async (action) => {
+      const host = createWhistleInteractionHost({ title: "Work" });
+      const session = host.begin();
+      session.interaction.notify({ type: "progress", message: "Working" });
+      let attempts = 0;
+      const pending = session.interaction.run(() => {
+        attempts += 1;
+        return Promise.reject(new Error("Unavailable"));
+      });
+      await vi.waitFor(() => {
+        expect(host.snapshot().retryable).toBe(true);
+      });
+      const cancelled = expect(pending).rejects.toBeInstanceOf(Error);
+      if (action === "dismiss") host.cancel();
+      else host.begin();
+      await cancelled;
+      host.retry();
+      expect(attempts).toBe(1);
+      expect(session.interaction.signal.aborted).toBe(true);
+    },
+  );
+
   function recordingPresenter() {
     const opened: string[] = [];
     const ends: WhistleInteractionEnd[] = [];

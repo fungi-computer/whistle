@@ -183,12 +183,27 @@ widget.
 A caller can pass its own interaction. Otherwise `present(presenter)` registers
 the mounted client that opens one for each human-origin execution. Agent and
 programmatic executions get none. Whistle settles the session with `handled`,
-`cancelled` or `failed` when the handler ends, and the presenter can `retry` the
-same execution. The newest presenter wins until its disposer runs.
+`cancelled` or `failed` when the handler ends. The newest presenter wins until
+its disposer runs.
 
 `createWhistleInteractionHost` from `./interaction` is a renderer-neutral store
 for one interaction. It parses every prompt, notice and answer with the `./wire`
 schemas, and a terminal or browser renderer draws its snapshot.
+
+After an answer or Try again, the host reuses the current progress message, or
+the command title when the producer supplies none, in the existing running row.
+This does not open a conversation for an inline operation that never asked a
+question or showed progress/a handoff.
+
+`interaction.run(operation)` marks one serial operation as retryable. Once the
+conversation has asked a question or shown progress/a handoff, a failure is
+shown and waits for `host.retry()` or dismissal. Before that, it propagates
+normally: a failed inline action does not suddenly open a conversation. Retry
+repeats only that operation with its captured inputs; the original handler stays
+suspended, so successful earlier steps and questions are not replayed. Dismissal
+aborts that wait. Failures outside `run` end the handler normally and do not
+advertise a whole-command replay fallback. Notification-only interactions
+execute `run` once and propagate failure, without an interactive retry wait.
 
 ### Slash arguments
 
@@ -206,7 +221,13 @@ data-only definitions. `parseCatalog` validates it at the client boundary.
 your `invoke` function. Each reply is a step: `done` (optional notice and
 result) or `prompt` (one question plus the complete arguments of the next call,
 with the answer going into a named field). Multi-step flows stay stateless on
-the wire and run through the caller's interaction.
+the wire and run through the caller's interaction. Each catalog invocation is
+one retryable operation. Non-secret answers and request identity are retained;
+secret answers are not. The continuation keeps the secret questions instead,
+asks them inside each attempt, and removes their values from the invocation
+payload as soon as it settles, whether it succeeds or fails. Retry re-asks only
+those secret questions, not earlier non-secret choices. If a later backend step
+still requires a secret, it must be entered again for that invocation too.
 
 ### Closing
 

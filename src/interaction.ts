@@ -60,6 +60,10 @@ export type WhistleInteractionSnapshot = Readonly<{
   prompt?: WhistlePendingPrompt | undefined;
   /** Failure message while status is "failed". */
   failure?: string | undefined;
+  /** The failed operation is waiting for a deliberate retry. */
+  retryable: boolean;
+  /** A closing line the command posted after the human dismissed it. */
+  closing?: WhistleMessageNotice | undefined;
 }>;
 
 /** A renderer-neutral store behind one interaction dialog or panel. */
@@ -68,8 +72,10 @@ export type WhistleInteractionHost = Readonly<{
   snapshot: () => WhistleInteractionSnapshot;
   /** Observe snapshot changes. */
   subscribe: (listener: () => void) => () => void;
-  /** Start one attempt; a retry calls this again. */
+  /** Start one command interaction, replacing and aborting the previous one. */
   begin: () => WhistleInteractionSession;
+  /** Resume only the failed operation; ignored while working or after dismissal. */
+  retry: () => void;
   /** Answer the pending prompt; a stale sequence or invalid value is ignored. */
   answer: (sequence: number, value: string | boolean) => boolean;
   /** Dismiss: abort the attempt, or close a settled failure. */
@@ -97,22 +103,35 @@ export function createWhistleInteractionHost(
     title: options.title,
     status: "working",
     links: [],
+    retryable: false,
   };
   let attempt: AbortController | undefined;
   let waiting: Waiting | undefined;
   let sequence = 0;
+  let retry: (() => void) | undefined;
   const publish = (next: Partial<WhistleInteractionSnapshot>) => {
     state = { ...state, ...next };
     for (const listener of listeners) listener();
   };
+  const runningMessage = (): WhistleMessageNotice =>
+    state.message?.type === "progress"
+      ? state.message
+      : { type: "progress", message: options.title };
   const end = (result: WhistleInteractionEnd) => {
     waiting = undefined;
+    retry = undefined;
     if (result.status === "failed")
-      publish({ status: "failed", failure: result.message, prompt: undefined });
+      publish({
+        status: "failed",
+        failure: result.message,
+        prompt: undefined,
+        retryable: false,
+      });
     else
       publish({
         status: result.status === "handled" ? "done" : "cancelled",
         prompt: undefined,
+        retryable: false,
       });
     options.onEnd?.(result);
   };
@@ -130,11 +149,62 @@ export function createWhistleInteractionHost(
       attempt = controller;
       const signal = controller.signal;
       waiting = undefined;
-      state = { title: options.title, status: "working", links: [] };
+      retry = undefined;
+      state = {
+        title: options.title,
+        status: "working",
+        links: [],
+        retryable: false,
+      };
       publish({});
       const current = () => attempt === controller && !signal.aborted;
+      let engaged = false;
       const interaction: WhistleInteraction = {
         signal,
+        run: async (operation) => {
+          for (;;) {
+            signal.throwIfAborted();
+            try {
+              return await operation();
+            } catch (error) {
+              // A command that never opened a conversation still reports its
+              // ordinary failure; do not turn an inline action into a dialog.
+              if (!current() || !engaged) throw error;
+              await new Promise<void>((resolve, reject) => {
+                const abort = () => {
+                  retry = undefined;
+                  reject(
+                    new Error("Interaction cancelled", {
+                      cause: signal.reason,
+                    }),
+                  );
+                };
+                const resume = () => {
+                  if (!current() || retry !== resume) return;
+                  retry = undefined;
+                  signal.removeEventListener("abort", abort);
+                  publish({
+                    status: "working",
+                    message: runningMessage(),
+                    failure: undefined,
+                    retryable: false,
+                    handoff: undefined,
+                  });
+                  resolve();
+                };
+                signal.addEventListener("abort", abort, { once: true });
+                retry = resume;
+                publish({
+                  status: "failed",
+                  failure:
+                    error instanceof Error ? error.message : "Operation failed",
+                  prompt: undefined,
+                  retryable: true,
+                });
+              });
+            }
+          }
+        },
         prompt: <Kind extends WhistlePrompt["type"]>(
           raw: WhistlePromptOf<Kind>,
           promptOptions?: Readonly<{ signal?: AbortSignal }>,
@@ -145,6 +215,7 @@ export function createWhistleInteractionHost(
               : AbortSignal.any([signal, promptOptions.signal]);
           promptSignal.throwIfAborted();
           const request = parsePrompt(raw);
+          engaged = true;
           const decodeAnswer = createPromptAnswerDecoder(raw);
           const answer = Promise.withResolvers<WhistlePromptAnswers[Kind]>();
           const own = ++sequence;
@@ -174,8 +245,16 @@ export function createWhistleInteractionHost(
           return answer.promise;
         },
         notify: (raw) => {
-          if (!current()) return;
+          // A dismissed attempt may still say how it ended; a replaced one may not.
+          if (attempt !== controller) return;
           const notice = parseNotice(raw);
+          if (signal.aborted) {
+            if (notice.type === "info" || notice.type === "success")
+              publish({ closing: notice });
+            return;
+          }
+          if (notice.type === "handoff" || notice.type === "progress")
+            engaged = true;
           if (notice.type === "handoff") publish({ handoff: notice });
           else
             publish({
@@ -194,12 +273,17 @@ export function createWhistleInteractionHost(
         },
       };
     },
+    retry: () => retry?.(),
     answer: (own, value) => {
       const pending = waiting;
       if (pending?.sequence !== own) return false;
       if (!pending.resolve(value)) return false;
       waiting = undefined;
-      publish({ status: "working", prompt: undefined });
+      publish({
+        status: "working",
+        message: runningMessage(),
+        prompt: undefined,
+      });
       return true;
     },
     cancel: () => {

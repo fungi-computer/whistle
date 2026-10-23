@@ -56,6 +56,21 @@ it("projects bindings through a host keymap and the Whistle execution door", asy
   ]);
   expect(await registered?.commands[0]?.run()).toBe(true);
   expect(handler).toHaveBeenCalledOnce();
+  const revisedHandler = vi.fn();
+  lease.update([
+    {
+      id: "open",
+      title: "A refreshed label",
+      category: "navigation",
+      projections: { bindings: { values: ["ctrl+o"] } },
+      handler: revisedHandler,
+    },
+  ]);
+  // Replacing an unchanged native layer discards the SDK's pending sequence.
+  expect(registeredCount).toBe(1);
+  expect(cleanedCount).toBe(0);
+  expect(await registered?.commands[0]?.run()).toBe(true);
+  expect(revisedHandler).toHaveBeenCalledOnce();
   lease.update([
     {
       id: "open",

@@ -75,6 +75,8 @@ type WhistleInteractionSnapshot = Readonly<{
   links: readonly WhistleNoticeLink[];
   prompt?: WhistlePendingPrompt;
   failure?: string;
+  retryable: boolean;
+  closing?: WhistleMessageNotice;
 }>;
 ```
 
@@ -89,6 +91,7 @@ type WhistleInteractionHost = Readonly<{
   snapshot: () => WhistleInteractionSnapshot;
   subscribe: (listener) => () => void;
   begin: () => WhistleInteractionSession;
+  retry: () => void;
   answer: (sequence, value) => boolean;
   cancel: () => void;
 }>;

@@ -1,5 +1,6 @@
 import { parsePromptAnswer } from "../src/wire.js";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { createWhistleInteractionHost } from "../src/interaction.js";
 
 import {
   catalogCommands,
@@ -51,6 +52,173 @@ const catalogFixture = {
 };
 
 describe("whistle.catalog/v1 contract", () => {
+  it.each(["key", "__proto__"])(
+    "drops secret argument %s after each attempt and re-asks only the secret on retry",
+    async (field) => {
+      const runtime = createWhistle();
+      const host = createWhistleInteractionHost({ title: "Connect provider" });
+      runtime.present(() => host.begin());
+      const captured: WhistleJsonObject[] = [];
+      const questions: string[] = [];
+      let submitted = 0;
+      runtime.contribute({
+        sourceId: "secret-retry",
+        namespace: "secret",
+        commands: catalogCommands(
+          parseCatalog({
+            protocol: whistleCatalogProtocol,
+            commands: [
+              {
+                id: "connect",
+                title: "Connect provider",
+                category: "Settings",
+              },
+            ],
+          }),
+          (_command, args) => {
+            captured.push(args);
+            if (args.provider === undefined)
+              return Promise.resolve({
+                type: "prompt",
+                prompt: {
+                  type: "choice",
+                  message: "Provider?",
+                  options: [{ value: "beta", label: "Beta" }],
+                },
+                next: { arguments: { method: "api_key" }, answer: "provider" },
+              });
+            if (args.method !== "api_key") throw new Error("Missing method");
+            if (args.stage !== "submit")
+              return Promise.resolve({
+                type: "prompt",
+                prompt: { type: "text", message: "API key?", secret: true },
+                next: {
+                  arguments: {
+                    provider: args.provider,
+                    method: args.method,
+                    stage: "submit",
+                  },
+                  answer: field,
+                },
+              });
+            submitted += 1;
+            expect(args.provider).toBe("beta");
+            expect(args.method).toBe("api_key");
+            expect(args[field]).toBe(
+              submitted === 1 ? "first-fixture-secret" : "fresh-fixture-secret",
+            );
+            return submitted === 1
+              ? Promise.reject(new Error("Credential service unavailable"))
+              : Promise.resolve({ type: "done", result: "connected" });
+          },
+        ),
+      });
+      const running = runtime.execute("secret:connect", { origin: "slash" });
+      const answer = async (value: string) => {
+        await vi.waitFor(() => {
+          expect(host.snapshot().prompt).toBeDefined();
+        });
+        const pending = host.snapshot().prompt;
+        if (pending === undefined) throw new Error("Missing question");
+        questions.push(pending.request.message);
+        host.answer(pending.sequence, value);
+      };
+      try {
+        await answer("beta");
+        await answer("first-fixture-secret");
+        await vi.waitFor(() => {
+          expect(host.snapshot().retryable).toBe(true);
+        });
+        expect(Object.hasOwn(captured.at(-1) ?? {}, field)).toBe(false);
+        host.retry();
+        await answer("fresh-fixture-secret");
+        expect((await running).status).toBe("handled");
+        expect(questions).toEqual(["Provider?", "API key?", "API key?"]);
+        expect(submitted).toBe(2);
+        for (const args of captured)
+          expect(Object.hasOwn(args, field)).toBe(false);
+      } finally {
+        host.cancel();
+        await running;
+        runtime.close();
+      }
+    },
+  );
+
+  it("keeps only question metadata when a later step carries two secret fields", async () => {
+    const runtime = createWhistle();
+    const host = createWhistleInteractionHost({ title: "Two credentials" });
+    runtime.present(() => host.begin());
+    const captured: WhistleJsonObject[] = [];
+    let submitted = 0;
+    runtime.contribute({
+      sourceId: "two-secrets",
+      namespace: "two",
+      commands: catalogCommands(parseCatalog(catalogFixture), (_id, args) => {
+        captured.push(args);
+        if (args.stage === undefined)
+          return Promise.resolve({
+            type: "prompt",
+            prompt: { type: "text", message: "Key?", secret: true },
+            next: { arguments: { stage: "password" }, answer: "key" },
+          });
+        if (args.stage === "password") {
+          expect(args.key).toBe("initial-key");
+          return Promise.resolve({
+            type: "prompt",
+            prompt: { type: "text", message: "Password?", secret: true },
+            next: {
+              arguments: { ...args, stage: "submit" },
+              answer: "password",
+            },
+          });
+        }
+        submitted += 1;
+        expect(args.key).toBe(submitted === 1 ? "attempt-key" : "fresh-key");
+        expect(args.password).toBe(
+          submitted === 1 ? "attempt-password" : "fresh-password",
+        );
+        return submitted === 1
+          ? Promise.reject(new Error("Try fresh credentials"))
+          : Promise.resolve({ type: "done" });
+      }),
+    });
+    const running = runtime.execute("two:goal", { origin: "slash" });
+    const answer = async (message: string, value: string) => {
+      await vi.waitFor(() => {
+        expect(host.snapshot().prompt?.request.message).toBe(message);
+      });
+      const pending = host.snapshot().prompt;
+      if (pending === undefined) throw new Error("Missing secret question");
+      host.answer(pending.sequence, value);
+    };
+    try {
+      await answer("Key?", "initial-key");
+      await answer("Key?", "attempt-key");
+      await answer("Password?", "attempt-password");
+      await vi.waitFor(() => {
+        expect(host.snapshot().retryable).toBe(true);
+      });
+      for (const args of captured) {
+        expect(Object.hasOwn(args, "key")).toBe(false);
+        expect(Object.hasOwn(args, "password")).toBe(false);
+      }
+      host.retry();
+      await answer("Key?", "fresh-key");
+      await answer("Password?", "fresh-password");
+      expect((await running).status).toBe("handled");
+      expect(submitted).toBe(2);
+      for (const args of captured) {
+        expect(Object.hasOwn(args, "key")).toBe(false);
+        expect(Object.hasOwn(args, "password")).toBe(false);
+      }
+    } finally {
+      host.cancel();
+      await running;
+      runtime.close();
+    }
+  });
+
   it("parses the versioned catalog fixture", () => {
     const catalog = parseCatalog(catalogFixture);
     expect(catalog.protocol).toBe(whistleCatalogProtocol);
@@ -118,6 +286,7 @@ function scriptedInteraction(answers: (string | boolean)[]) {
   const asked: WhistlePrompt[] = [];
   const notices: string[] = [];
   const interaction: WhistleInteraction = {
+    run: (operation) => operation(),
     signal: new AbortController().signal,
     prompt: (prompt) => {
       asked.push(prompt);

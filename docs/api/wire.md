@@ -275,23 +275,25 @@ A prompt and its discriminator remain correlated through generic dispatch.
 ### WhistleAvailabilitySchema
 
 ```ts
-const WhistleAvailabilitySchema: ZodDiscriminatedUnion<
-  [
-    ZodObject<
-      {
-        status: ZodLiteral<"available">;
-      },
-      $strict
-    >,
-    ZodObject<
-      {
-        status: ZodLiteral<"unavailable">;
-        reason: ZodString;
-      },
-      $strict
-    >,
-  ],
-  "status"
+const WhistleAvailabilitySchema: ZodLazy<
+  ZodDiscriminatedUnion<
+    [
+      ZodObject<
+        {
+          status: ZodLiteral<"available">;
+        },
+        $strict
+      >,
+      ZodObject<
+        {
+          status: ZodLiteral<"unavailable">;
+          reason: ZodString;
+        },
+        $strict
+      >,
+    ],
+    "status"
+  >
 >;
 ```
 
@@ -312,7 +314,7 @@ The JSON value grammar shared by Whistle transports and App adapters.
 ### WhistleJsonObjectSchema
 
 ```ts
-const WhistleJsonObjectSchema: ZodRecord<ZodString, ZodJSONSchema>;
+const WhistleJsonObjectSchema: ZodLazy<ZodRecord<ZodString, ZodJSONSchema>>;
 ```
 
 One JSON object, used for action schemas and custom presentation data.
@@ -342,13 +344,15 @@ Parse a copied JSON object at an untrusted transport boundary.
 ### WhistleFailureSchema
 
 ```ts
-const WhistleFailureSchema: ZodObject<
-  {
-    code: ZodString;
-    message: ZodString;
-    details: ZodOptional<ZodJSONSchema>;
-  },
-  $strict
+const WhistleFailureSchema: ZodLazy<
+  ZodObject<
+    {
+      code: ZodString;
+      message: ZodString;
+      details: ZodOptional<ZodJSONSchema>;
+    },
+    $strict
+  >
 >;
 ```
 
@@ -369,7 +373,7 @@ Parse failure data without carrying an Error or stack across the wire.
 ### WhistleActionSchemaSchema
 
 ```ts
-const WhistleActionSchemaSchema: ZodRecord<ZodString, ZodJSONSchema> =
+const WhistleActionSchemaSchema: ZodLazy<ZodRecord<ZodString, ZodJSONSchema>> =
   WhistleJsonObjectSchema;
 ```
 
@@ -380,54 +384,56 @@ The JSON object shape used by Whistle action schemas.
 ### WhistleActionPresentationSchema
 
 ```ts
-const WhistleActionPresentationSchema: ZodUnion<
-  readonly [
-    ZodObject<
-      {
-        type: ZodLiteral<"action">;
-      },
-      $strict
-    >,
-    ZodObject<
-      {
-        type: ZodLiteral<"custom">;
-        data: ZodRecord<ZodString, ZodJSONSchema>;
-      },
-      $strict
-    >,
-    ZodObject<
-      {
-        type: ZodLiteral<"choice">;
-        options: ZodArray<
-          ZodObject<
-            {
-              value: ZodJSONSchema;
-              label: ZodString;
-              description: ZodOptional<ZodString>;
-            },
-            $strip
-          >
-        >;
-      },
-      $strict
-    >,
-    ZodObject<
-      {
-        type: ZodLiteral<"form">;
-        submitLabel: ZodOptional<ZodString>;
-      },
-      $strict
-    >,
-    ZodObject<
-      {
-        type: ZodLiteral<"confirmation">;
-        message: ZodString;
-        confirmLabel: ZodOptional<ZodString>;
-        cancelLabel: ZodOptional<ZodString>;
-      },
-      $strict
-    >,
-  ]
+const WhistleActionPresentationSchema: ZodLazy<
+  ZodUnion<
+    readonly [
+      ZodObject<
+        {
+          type: ZodLiteral<"action">;
+        },
+        $strict
+      >,
+      ZodObject<
+        {
+          type: ZodLiteral<"custom">;
+          data: ZodLazy<ZodRecord<ZodString, ZodJSONSchema>>;
+        },
+        $strict
+      >,
+      ZodObject<
+        {
+          type: ZodLiteral<"choice">;
+          options: ZodArray<
+            ZodObject<
+              {
+                value: ZodJSONSchema;
+                label: ZodLazy<ZodString>;
+                description: ZodOptional<ZodLazy<ZodString>>;
+              },
+              $strip
+            >
+          >;
+        },
+        $strict
+      >,
+      ZodObject<
+        {
+          type: ZodLiteral<"form">;
+          submitLabel: ZodOptional<ZodLazy<ZodString>>;
+        },
+        $strict
+      >,
+      ZodObject<
+        {
+          type: ZodLiteral<"confirmation">;
+          message: ZodLazy<ZodString>;
+          confirmLabel: ZodOptional<ZodLazy<ZodString>>;
+          cancelLabel: ZodOptional<ZodLazy<ZodString>>;
+        },
+        $strict
+      >,
+    ]
+  >
 >;
 ```
 
@@ -438,31 +444,27 @@ Validate renderer-neutral presentation data attached to an action.
 ### WhistleActionDataSchema
 
 ```ts
-const WhistleActionDataSchema: ZodObject<{
-  inputSchema: ZodOptional<ZodRecord<ZodString, ZodJSONSchema>>;
-  outputSchema: ZodOptional<ZodRecord<ZodString, ZodJSONSchema>>;
-  presentation: ZodOptional<ZodUnion<readonly [ZodObject<{
+const WhistleActionDataSchema: ZodLazy<ZodObject<{
+  inputSchema: ZodOptional<ZodLazy<ZodRecord<ZodString, ZodJSONSchema>>>;
+  outputSchema: ZodOptional<ZodLazy<ZodRecord<ZodString, ZodJSONSchema>>>;
+  presentation: ZodOptional<ZodLazy<ZodUnion<readonly [ZodObject<{
      type: ZodLiteral<"action">;
    }, $strict>, ZodObject<{
      type: ZodLiteral<"custom">;
-     data: ZodRecord<ZodString, ZodJSONSchema>;
+     data: ZodLazy<ZodRecord<..., ...>>;
    }, $strict>, ZodObject<{
      type: ZodLiteral<"choice">;
-     options: ZodArray<ZodObject<{
-        value: ZodJSONSchema;
-        label: ZodString;
-        description: ZodOptional<...>;
-     }, $strip>>;
+     options: ZodArray<ZodObject<..., ...>>;
    }, $strict>, ZodObject<{
      type: ZodLiteral<"form">;
-     submitLabel: ZodOptional<ZodString>;
+     submitLabel: ZodOptional<ZodLazy<...>>;
    }, $strict>, ZodObject<{
      type: ZodLiteral<"confirmation">;
-     message: ZodString;
-     confirmLabel: ZodOptional<ZodString>;
-     cancelLabel: ZodOptional<ZodString>;
-  }, $strict>]>>;
-}, $strict>;
+     message: ZodLazy<ZodString>;
+     confirmLabel: ZodOptional<ZodLazy<...>>;
+     cancelLabel: ZodOptional<ZodLazy<...>>;
+  }, $strict>]>>>;
+}, $strict>>;
 ```
 
 Validate the serializable action contract carried by a command.
@@ -472,33 +474,35 @@ Validate the serializable action contract carried by a command.
 ### WhistleSlashArgumentsSchema
 
 ```ts
-const WhistleSlashArgumentsSchema: ZodObject<
-  {
-    hint: ZodPipe<ZodString, ZodString>;
-    words: ZodOptional<
-      ZodArray<
+const WhistleSlashArgumentsSchema: ZodLazy<
+  ZodObject<
+    {
+      hint: ZodPipe<ZodLazy<ZodString>, ZodString>;
+      words: ZodOptional<
+        ZodArray<
+          ZodObject<
+            {
+              word: ZodString;
+              description: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+              arguments: ZodLazy<ZodRecord<ZodString, ZodJSONSchema>>;
+            },
+            $strict
+          >
+        >
+      >;
+      text: ZodOptional<
         ZodObject<
           {
-            word: ZodString;
-            description: ZodOptional<ZodPipe<ZodString, ZodString>>;
-            arguments: ZodRecord<ZodString, ZodJSONSchema>;
+            field: ZodPipe<ZodLazy<ZodString>, ZodString>;
+            arguments: ZodLazy<ZodRecord<ZodString, ZodJSONSchema>>;
+            requestIdField: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
           },
           $strict
         >
-      >
-    >;
-    text: ZodOptional<
-      ZodObject<
-        {
-          field: ZodPipe<ZodString, ZodString>;
-          arguments: ZodRecord<ZodString, ZodJSONSchema>;
-          requestIdField: ZodOptional<ZodPipe<ZodString, ZodString>>;
-        },
-        $strict
-      >
-    >;
-  },
-  $strict
+      >;
+    },
+    $strict
+  >
 >;
 ```
 
@@ -509,38 +513,35 @@ Validate aliases and argument mapping metadata for slash commands.
 ### WhistleCommandProjectionsSchema
 
 ```ts
-const WhistleCommandProjectionsSchema: ZodObject<{
+const WhistleCommandProjectionsSchema: ZodLazy<ZodObject<{
   bindings: ZodOptional<ZodObject<{
-     order: ZodOptional<ZodNumber>;
-     values: ZodArray<ZodString>;
+     order: ZodOptional<ZodLazy<ZodNumber>>;
+     values: ZodArray<ZodLazy<ZodString>>;
   }, $strict>>;
   agent: ZodOptional<ZodObject<{
-     keybind: ZodOptional<ZodString>;
-     order: ZodOptional<ZodNumber>;
+     keybind: ZodOptional<ZodLazy<ZodString>>;
+     order: ZodOptional<ZodLazy<ZodNumber>>;
   }, $strict>>;
-  help: ZodOptional<ZodObject<{
-     order: ZodOptional<ZodNumber>;
-  }, $strict>>;
-  menu: ZodOptional<ZodObject<{
-     order: ZodOptional<ZodNumber>;
-  }, $strict>>;
-  palette: ZodOptional<ZodObject<{
-     order: ZodOptional<ZodNumber>;
-  }, $strict>>;
+  help: ZodOptional<ZodLazy<ZodObject<{
+     order: ZodOptional<ZodLazy<ZodNumber>>;
+  }, $strict>>>;
+  menu: ZodOptional<ZodLazy<ZodObject<{
+     order: ZodOptional<ZodLazy<ZodNumber>>;
+  }, $strict>>>;
+  palette: ZodOptional<ZodLazy<ZodObject<{
+     order: ZodOptional<ZodLazy<ZodNumber>>;
+  }, $strict>>>;
   slash: ZodOptional<ZodObject<{
-     aliases: ZodArray<ZodString>;
-     order: ZodOptional<ZodNumber>;
-     arguments: ZodOptional<ZodObject<{
-        hint: ZodPipe<ZodString, ZodString>;
-        words: ZodOptional<ZodArray<ZodObject<..., ...>>>;
-        text: ZodOptional<ZodObject<{
-           field: ...;
-           arguments: ...;
-           requestIdField: ...;
-        }, $strict>>;
-     }, $strict>>;
+     aliases: ZodArray<ZodLazy<ZodString>>;
+     consumesDraft: ZodOptional<ZodBoolean>;
+     order: ZodOptional<ZodLazy<ZodNumber>>;
+     arguments: ZodOptional<ZodLazy<ZodObject<{
+        hint: ZodPipe<..., ...>;
+        words: ZodOptional<...>;
+        text: ZodOptional<...>;
+     }, $strict>>>;
   }, $strict>>;
-}, $strict>;
+}, $strict>>;
 ```
 
 Validate explicit membership and ordering across Whistle surfaces.
@@ -550,67 +551,48 @@ Validate explicit membership and ordering across Whistle surfaces.
 ### WhistleCommandDefinitionSchema
 
 ```ts
-const WhistleCommandDefinitionSchema: ZodObject<{
-  id: ZodString;
-  title: ZodString;
-  category: ZodString;
-  description: ZodOptional<ZodString>;
-  projections: ZodOptional<ZodObject<{
+const WhistleCommandDefinitionSchema: ZodLazy<ZodObject<{
+  id: ZodLazy<ZodString>;
+  title: ZodLazy<ZodString>;
+  category: ZodLazy<ZodString>;
+  description: ZodOptional<ZodLazy<ZodString>>;
+  projections: ZodOptional<ZodLazy<ZodObject<{
      bindings: ZodOptional<ZodObject<{
-        order: ZodOptional<ZodNumber>;
-        values: ZodArray<ZodString>;
+        order: ZodOptional<...>;
+        values: ZodArray<...>;
      }, $strict>>;
      agent: ZodOptional<ZodObject<{
-        keybind: ZodOptional<ZodString>;
-        order: ZodOptional<ZodNumber>;
+        keybind: ZodOptional<...>;
+        order: ZodOptional<...>;
      }, $strict>>;
-     help: ZodOptional<ZodObject<{
-        order: ZodOptional<ZodNumber>;
-     }, $strict>>;
-     menu: ZodOptional<ZodObject<{
-        order: ZodOptional<ZodNumber>;
-     }, $strict>>;
-     palette: ZodOptional<ZodObject<{
-        order: ZodOptional<ZodNumber>;
-     }, $strict>>;
+     help: ZodOptional<ZodLazy<ZodObject<{
+        order: ...;
+     }, $strict>>>;
+     menu: ZodOptional<ZodLazy<ZodObject<{
+        order: ...;
+     }, $strict>>>;
+     palette: ZodOptional<ZodLazy<ZodObject<{
+        order: ...;
+     }, $strict>>>;
      slash: ZodOptional<ZodObject<{
-        aliases: ZodArray<ZodString>;
-        order: ZodOptional<ZodNumber>;
-        arguments: ZodOptional<ZodObject<{
-           hint: ...;
-           words: ...;
-           text: ...;
-        }, $strict>>;
+        aliases: ZodArray<...>;
+        consumesDraft: ZodOptional<...>;
+        order: ZodOptional<...>;
+        arguments: ZodOptional<...>;
      }, $strict>>;
-  }, $strict>>;
-  action: ZodOptional<ZodObject<{
-     inputSchema: ZodOptional<ZodRecord<ZodString, ZodJSONSchema>>;
-     outputSchema: ZodOptional<ZodRecord<ZodString, ZodJSONSchema>>;
-     presentation: ZodOptional<ZodUnion<readonly [ZodObject<{
-        type: ZodLiteral<...>;
-      }, $strict>, ZodObject<{
-        type: ZodLiteral<...>;
-        data: ZodRecord<..., ...>;
-      }, $strict>, ZodObject<{
-        type: ZodLiteral<...>;
-        options: ZodArray<...>;
-      }, $strict>, ZodObject<{
-        type: ZodLiteral<...>;
-        submitLabel: ZodOptional<...>;
-      }, $strict>, ZodObject<{
-        type: ZodLiteral<...>;
-        message: ZodString;
-        confirmLabel: ZodOptional<...>;
-        cancelLabel: ZodOptional<...>;
-     }, $strict>]>>;
-  }, $strict>>;
-  availability: ZodOptional<ZodDiscriminatedUnion<[ZodObject<{
+  }, $strict>>>;
+  action: ZodOptional<ZodLazy<ZodObject<{
+     inputSchema: ZodOptional<ZodLazy<ZodRecord<ZodString, ZodJSONSchema>>>;
+     outputSchema: ZodOptional<ZodLazy<ZodRecord<ZodString, ZodJSONSchema>>>;
+     presentation: ZodOptional<ZodLazy<ZodUnion<readonly [..., ..., ..., ..., ...]>>>;
+  }, $strict>>>;
+  availability: ZodOptional<ZodLazy<ZodDiscriminatedUnion<[ZodObject<{
      status: ZodLiteral<"available">;
    }, $strict>, ZodObject<{
      status: ZodLiteral<"unavailable">;
      reason: ZodString;
-  }, $strict>], "status">>;
-}, $strict>;
+  }, $strict>], "status">>>;
+}, $strict>>;
 ```
 
 Validate data-only command definitions supplied by an adapter.
@@ -660,45 +642,55 @@ Parse one data-only command definition before an adapter creates a command.
 ### WhistleAgentProjectionSchema
 
 ```ts
-const WhistleAgentProjectionSchema: ZodObject<
-  {
-    commandId: ZodString;
-    sourceId: ZodString;
-    scope: ZodOptional<ZodString>;
-    title: ZodString;
-    category: ZodString;
-    description: ZodOptional<ZodString>;
-    order: ZodNumber;
-    availability: ZodDiscriminatedUnion<
-      [
-        ZodObject<
-          {
-            status: ZodLiteral<"available">;
-          },
-          $strict
-        >,
-        ZodObject<
-          {
-            status: ZodLiteral<"unavailable">;
-            reason: ZodString;
-          },
-          $strict
-        >,
-      ],
-      "status"
-    >;
-    action: ZodOptional<
-      ZodObject<
-        {
-          inputSchema: ZodOptional<ZodRecord<ZodString, ZodJSONSchema>>;
-          outputSchema: ZodOptional<ZodRecord<ZodString, ZodJSONSchema>>;
-        },
-        $strict
-      >
-    >;
-    keybind: ZodOptional<ZodString>;
-  },
-  $strict
+const WhistleAgentProjectionSchema: ZodLazy<
+  ZodObject<
+    {
+      commandId: ZodString;
+      sourceId: ZodString;
+      scope: ZodOptional<ZodString>;
+      title: ZodString;
+      category: ZodString;
+      description: ZodOptional<ZodString>;
+      order: ZodNumber;
+      availability: ZodLazy<
+        ZodDiscriminatedUnion<
+          [
+            ZodObject<
+              {
+                status: ZodLiteral<"available">;
+              },
+              $strict
+            >,
+            ZodObject<
+              {
+                status: ZodLiteral<"unavailable">;
+                reason: ZodString;
+              },
+              $strict
+            >,
+          ],
+          "status"
+        >
+      >;
+      action: ZodOptional<
+        ZodLazy<
+          ZodObject<
+            {
+              inputSchema: ZodOptional<
+                ZodLazy<ZodRecord<ZodString, ZodJSONSchema>>
+              >;
+              outputSchema: ZodOptional<
+                ZodLazy<ZodRecord<ZodString, ZodJSONSchema>>
+              >;
+            },
+            $strict
+          >
+        >
+      >;
+      keybind: ZodOptional<ZodString>;
+    },
+    $strict
+  >
 >;
 ```
 
@@ -709,48 +701,26 @@ One neutral agent row emitted by Whistle's `snapshot.agent` projection.
 ### WhistleAgentProjectionsSchema
 
 ```ts
-const WhistleAgentProjectionsSchema: ZodArray<
-  ZodObject<
-    {
-      commandId: ZodString;
-      sourceId: ZodString;
-      scope: ZodOptional<ZodString>;
-      title: ZodString;
-      category: ZodString;
-      description: ZodOptional<ZodString>;
-      order: ZodNumber;
-      availability: ZodDiscriminatedUnion<
-        [
-          ZodObject<
-            {
-              status: ZodLiteral<"available">;
-            },
-            $strict
-          >,
-          ZodObject<
-            {
-              status: ZodLiteral<"unavailable">;
-              reason: ZodString;
-            },
-            $strict
-          >,
-        ],
-        "status"
-      >;
-      action: ZodOptional<
-        ZodObject<
-          {
-            inputSchema: ZodOptional<ZodRecord<ZodString, ZodJSONSchema>>;
-            outputSchema: ZodOptional<ZodRecord<ZodString, ZodJSONSchema>>;
-          },
-          $strict
-        >
-      >;
-      keybind: ZodOptional<ZodString>;
-    },
-    $strict
-  >
->;
+const WhistleAgentProjectionsSchema: ZodArray<ZodLazy<ZodObject<{
+  commandId: ZodString;
+  sourceId: ZodString;
+  scope: ZodOptional<ZodString>;
+  title: ZodString;
+  category: ZodString;
+  description: ZodOptional<ZodString>;
+  order: ZodNumber;
+  availability: ZodLazy<ZodDiscriminatedUnion<[ZodObject<{
+     status: ZodLiteral<"available">;
+   }, $strict>, ZodObject<{
+     status: ZodLiteral<"unavailable">;
+     reason: ZodString;
+  }, $strict>], "status">>;
+  action: ZodOptional<ZodLazy<ZodObject<{
+     inputSchema: ZodOptional<ZodLazy<ZodRecord<..., ...>>>;
+     outputSchema: ZodOptional<ZodLazy<ZodRecord<..., ...>>>;
+  }, $strict>>>;
+  keybind: ZodOptional<ZodString>;
+}, $strict>>>;
 ```
 
 A neutral Whistle agent projection collection.
@@ -785,15 +755,15 @@ const WhistlePromptSchema: ZodDiscriminatedUnion<
     ZodObject<
       {
         type: ZodLiteral<"choice">;
-        message: ZodPipe<ZodString, ZodString>;
-        collapsedGroup: ZodOptional<ZodPipe<ZodString, ZodString>>;
+        message: ZodPipe<ZodLazy<ZodString>, ZodString>;
+        collapsedGroup: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
         options: ZodArray<
           ZodObject<
             {
-              value: ZodPipe<ZodString, ZodString>;
-              label: ZodPipe<ZodString, ZodString>;
-              description: ZodOptional<ZodPipe<ZodString, ZodString>>;
-              group: ZodOptional<ZodPipe<ZodString, ZodString>>;
+              value: ZodPipe<ZodLazy<ZodString>, ZodString>;
+              label: ZodPipe<ZodLazy<ZodString>, ZodString>;
+              description: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+              group: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
             },
             $strict
           >
@@ -804,8 +774,8 @@ const WhistlePromptSchema: ZodDiscriminatedUnion<
     ZodObject<
       {
         type: ZodLiteral<"text">;
-        message: ZodPipe<ZodString, ZodString>;
-        placeholder: ZodOptional<ZodPipe<ZodString, ZodString>>;
+        message: ZodPipe<ZodLazy<ZodString>, ZodString>;
+        placeholder: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
         secret: ZodOptional<ZodBoolean>;
       },
       $strict
@@ -813,9 +783,9 @@ const WhistlePromptSchema: ZodDiscriminatedUnion<
     ZodObject<
       {
         type: ZodLiteral<"confirmation">;
-        message: ZodPipe<ZodString, ZodString>;
-        confirmLabel: ZodOptional<ZodPipe<ZodString, ZodString>>;
-        cancelLabel: ZodOptional<ZodPipe<ZodString, ZodString>>;
+        message: ZodPipe<ZodLazy<ZodString>, ZodString>;
+        confirmLabel: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+        cancelLabel: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
       },
       $strict
     >,
@@ -831,52 +801,25 @@ Validate renderer-neutral interaction prompts received from a host.
 ### WhistleNoticeSchema
 
 ```ts
-const WhistleNoticeSchema: ZodDiscriminatedUnion<
-  [
-    ZodObject<
-      {
-        type: ZodLiteral<"info">;
-        message: ZodPipe<ZodString, ZodString>;
-        links: ZodOptional<
-          ZodArray<
-            ZodObject<
-              {
-                url: ZodURL;
-                label: ZodOptional<ZodPipe<ZodString, ZodString>>;
-              },
-              $strict
-            >
-          >
-        >;
-      },
-      $strict
-    >,
-    ZodObject<
-      {
-        type: ZodLiteral<"progress">;
-        message: ZodPipe<ZodString, ZodString>;
-      },
-      $strict
-    >,
-    ZodObject<
-      {
-        type: ZodLiteral<"handoff">;
-        url: ZodURL;
-        code: ZodOptional<ZodPipe<ZodString, ZodString>>;
-        message: ZodOptional<ZodPipe<ZodString, ZodString>>;
-      },
-      $strict
-    >,
-    ZodObject<
-      {
-        type: ZodLiteral<"success">;
-        message: ZodPipe<ZodString, ZodString>;
-      },
-      $strict
-    >,
-  ],
-  "type"
->;
+const WhistleNoticeSchema: ZodLazy<ZodDiscriminatedUnion<[ZodObject<{
+  type: ZodLiteral<"info">;
+  message: ZodPipe<ZodLazy<ZodString>, ZodString>;
+  links: ZodOptional<ZodArray<ZodObject<{
+     url: ZodURL;
+     label: ZodOptional<ZodPipe<..., ...>>;
+  }, $strict>>>;
+}, $strict>, ZodObject<{
+  type: ZodLiteral<"progress">;
+  message: ZodPipe<ZodLazy<ZodString>, ZodString>;
+}, $strict>, ZodObject<{
+  type: ZodLiteral<"handoff">;
+  url: ZodURL;
+  code: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+  message: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+}, $strict>, ZodObject<{
+  type: ZodLiteral<"success">;
+  message: ZodPipe<ZodLazy<ZodString>, ZodString>;
+}, $strict>], "type">>;
 ```
 
 Validate interaction notices received from a host.

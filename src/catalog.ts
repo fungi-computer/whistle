@@ -40,6 +40,7 @@ type CatalogCommand = Mutable<WhistleCommand>;
 type ConfirmationPrompt = Mutable<
   Extract<WhistlePrompt, { type: "confirmation" }>
 >;
+type SecretPrompt = Extract<WhistlePrompt, { type: "text" }>;
 
 const maximumCatalogCommands = 128;
 const maximumSteps = 16;
@@ -182,11 +183,62 @@ export function catalogCommands(
         const interaction = input.interaction;
         let args = await initialArguments(definition, input);
         if (args === undefined) return { cancelled: true };
+        let secrets = new Map<string, SecretPrompt>();
         for (let step = 0; step < maximumSteps; step += 1) {
           signal.throwIfAborted();
-          const reply = parseCatalogStep(
-            await invoke(definition.id, args, signal),
-          );
+          const stepArguments: WhistleJsonObject = args;
+          const stepSecrets = secrets;
+          const call = async () => {
+            // The retry continuation holds only non-secret arguments and the
+            // questions. Credentials exist only in this invocation's payload.
+            const attemptArguments = {
+              ...stepArguments,
+            };
+            try {
+              if (interaction !== undefined)
+                for (const [field, prompt] of stepSecrets)
+                  Object.defineProperty(attemptArguments, field, {
+                    value: await interaction.prompt(prompt),
+                    enumerable: true,
+                    configurable: true,
+                  });
+              const reply = parseCatalogStep(
+                await invoke(definition.id, attemptArguments, signal),
+              );
+              const nextSecrets = new Map<string, SecretPrompt>();
+              if (reply.type === "done") return { reply, secrets: nextSecrets };
+              const nextArguments = { ...reply.next.arguments };
+              for (const [field, prompt] of stepSecrets) {
+                if (
+                  field !== reply.next.answer &&
+                  Object.hasOwn(nextArguments, field)
+                )
+                  nextSecrets.set(field, prompt);
+                Reflect.deleteProperty(nextArguments, field);
+              }
+              if (
+                reply.prompt.type === "text" &&
+                reply.prompt.secret === true
+              ) {
+                nextSecrets.set(reply.next.answer, reply.prompt);
+                Reflect.deleteProperty(nextArguments, reply.next.answer);
+              }
+              return {
+                reply: {
+                  ...reply,
+                  next: { ...reply.next, arguments: nextArguments },
+                },
+                secrets: nextSecrets,
+              };
+            } finally {
+              for (const field of stepSecrets.keys())
+                Reflect.deleteProperty(attemptArguments, field);
+            }
+          };
+          const { reply, secrets: nextSecrets } =
+            interaction === undefined
+              ? await call()
+              : await interaction.run(call);
           if (reply.notice !== undefined) interaction?.notify(reply.notice);
           if (reply.type === "done") return reply.result;
           if (interaction === undefined)
@@ -194,6 +246,11 @@ export function catalogCommands(
               "interaction_required",
               `${definition.title} needs a person to answer: ${reply.prompt.message}`,
             );
+          secrets = nextSecrets;
+          if (reply.prompt.type === "text" && reply.prompt.secret === true) {
+            args = reply.next.arguments;
+            continue;
+          }
           const answer = await interaction.prompt(reply.prompt);
           args = { ...reply.next.arguments, [reply.next.answer]: answer };
         }

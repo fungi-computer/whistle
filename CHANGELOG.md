@@ -1,5 +1,20 @@
 # @fungi.computer/whistle
 
+## 0.1.0
+
+### Minor Changes
+
+- Changes since 0.0.2:
+
+  - feat(stranger): typecheck each public entry in its own environment
+  - feat(tui): isolate independent leader and Grove bundle
+  - fix(whistle): reuse normal rows after command retry
+  - fix(whistle): discard secret answers between attempts
+  - fix(whistle): retry the failed interaction operation
+  - fix(tui): keep only a post-dismissal line as the cancel notice
+  - fix(tui): make Esc during sign-in a calm cancel
+  - feat(oyster): public release 0.2.0
+
 ## 0.0.2
 
 ### Patch Changes

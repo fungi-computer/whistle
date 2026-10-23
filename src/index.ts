@@ -71,6 +71,14 @@ export type WhistleInteraction = Readonly<{
   ) => Promise<WhistlePromptAnswers[Kind]>;
   /** Show one status update. */
   notify: (notice: WhistleNotice) => void;
+  /**
+   * Run one retryable operation. Once the conversation has asked a question or
+   * shown progress/a handoff, failure waits for the human to retry that operation
+   * with its captured inputs or dismiss it. Earlier successful steps are not
+   * replayed. Before a conversation opens, failures propagate normally.
+   * Operations within an interaction are serial.
+   */
+  run: <Result>(operation: () => Promise<Result>) => Promise<Result>;
 }>;
 
 /** How an execution with an attached interaction ended. */
@@ -108,8 +116,6 @@ export type WhistlePresenter = (
     commandId: string;
     /** Human-facing command title. */
     title: string;
-    /** Execute the same command again with the same input. */
-    retry: () => void;
   }>,
 ) => WhistleInteractionSession;
 
@@ -483,10 +489,10 @@ export function createWhistle(): WhistleRuntime {
         },
       );
     },
-    execute: async function execute(
+    execute: async (
       commandId: string,
       input: WhistleExecutionInput,
-    ): Promise<WhistleExecutionOutcome> {
+    ): Promise<WhistleExecutionOutcome> => {
       if (commandId.trim().length === 0) return { status: "invalid" };
       if (closed) return { status: "closed" };
       const command = findCommand(commandId, liveContributions);
@@ -504,9 +510,6 @@ export function createWhistle(): WhistleRuntime {
           session = presenter({
             commandId,
             title: command.title,
-            retry: () => {
-              void execute(commandId, input);
-            },
           });
         const executionInput: WhistleExecutionInput & {
           signal: AbortSignal;

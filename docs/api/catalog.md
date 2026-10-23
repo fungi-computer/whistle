@@ -75,31 +75,26 @@ The one catalog protocol this Whistle understands.
 ```ts
 const WhistleCatalogSchema: ZodPipe<ZodObject<{
   protocol: ZodLiteral<"whistle.catalog/v1">;
-  commands: ZodArray<ZodObject<{
-     id: ZodString;
-     title: ZodString;
-     category: ZodString;
-     description: ZodOptional<ZodString>;
-     projections: ZodOptional<ZodObject<{
-        bindings: ZodOptional<ZodObject<..., ...>>;
-        agent: ZodOptional<ZodObject<..., ...>>;
-        help: ZodOptional<ZodObject<..., ...>>;
-        menu: ZodOptional<ZodObject<..., ...>>;
-        palette: ZodOptional<ZodObject<..., ...>>;
-        slash: ZodOptional<ZodObject<..., ...>>;
-     }, $strict>>;
-     action: ZodOptional<ZodObject<{
-        inputSchema: ZodOptional<ZodRecord<..., ...>>;
-        outputSchema: ZodOptional<ZodRecord<..., ...>>;
-        presentation: ZodOptional<ZodUnion<...>>;
-     }, $strict>>;
-     availability: ZodOptional<ZodDiscriminatedUnion<[ZodObject<{
-        status: ...;
-      }, $strict>, ZodObject<{
-        status: ...;
-        reason: ...;
-     }, $strict>], "status">>;
-  }, $strict>>;
+  commands: ZodArray<ZodLazy<ZodObject<{
+     id: ZodLazy<ZodString>;
+     title: ZodLazy<ZodString>;
+     category: ZodLazy<ZodString>;
+     description: ZodOptional<ZodLazy<ZodString>>;
+     projections: ZodOptional<ZodLazy<ZodObject<{
+        bindings: ...;
+        agent: ...;
+        help: ...;
+        menu: ...;
+        palette: ...;
+        slash: ...;
+     }, $strict>>>;
+     action: ZodOptional<ZodLazy<ZodObject<{
+        inputSchema: ...;
+        outputSchema: ...;
+        presentation: ...;
+     }, $strict>>>;
+     availability: ZodOptional<ZodLazy<ZodDiscriminatedUnion<[..., ...], "status">>>;
+  }, $strict>>>;
 }, $strict>, ZodTransform<Readonly<{
   protocol: "whistle.catalog/v1";
   commands: readonly object[];
@@ -128,59 +123,59 @@ Parse an advertised catalog at the client boundary.
 ```ts
 const WhistleCatalogStepSchema: ZodPipe<ZodDiscriminatedUnion<[ZodObject<{
   type: ZodLiteral<"done">;
-  notice: ZodOptional<ZodDiscriminatedUnion<[ZodObject<{
-     type: ZodLiteral<...>;
-     message: ZodPipe<..., ...>;
-     links: ZodOptional<...>;
+  notice: ZodOptional<ZodLazy<ZodDiscriminatedUnion<[ZodObject<{
+     type: ...;
+     message: ...;
+     links: ...;
    }, $strict>, ZodObject<{
-     type: ZodLiteral<...>;
-     message: ZodPipe<..., ...>;
+     type: ...;
+     message: ...;
    }, $strict>, ZodObject<{
-     type: ZodLiteral<...>;
-     url: ZodURL;
-     code: ZodOptional<...>;
-     message: ZodOptional<...>;
+     type: ...;
+     url: ...;
+     code: ...;
+     message: ...;
    }, $strict>, ZodObject<{
-     type: ZodLiteral<...>;
-     message: ZodPipe<..., ...>;
-  }, $strict>], "type">>;
+     type: ...;
+     message: ...;
+  }, $strict>], "type">>>;
   result: ZodOptional<ZodJSONSchema>;
 }, $strict>, ZodObject<{
   type: ZodLiteral<"prompt">;
   prompt: ZodDiscriminatedUnion<[ZodObject<{
      type: ZodLiteral<"choice">;
-     message: ZodPipe<ZodString, ZodString>;
+     message: ZodPipe<ZodLazy<...>, ZodString>;
      collapsedGroup: ZodOptional<ZodPipe<..., ...>>;
      options: ZodArray<ZodObject<..., ...>>;
    }, $strict>, ZodObject<{
      type: ZodLiteral<"text">;
-     message: ZodPipe<ZodString, ZodString>;
+     message: ZodPipe<ZodLazy<...>, ZodString>;
      placeholder: ZodOptional<ZodPipe<..., ...>>;
      secret: ZodOptional<ZodBoolean>;
    }, $strict>, ZodObject<{
      type: ZodLiteral<"confirmation">;
-     message: ZodPipe<ZodString, ZodString>;
+     message: ZodPipe<ZodLazy<...>, ZodString>;
      confirmLabel: ZodOptional<ZodPipe<..., ...>>;
      cancelLabel: ZodOptional<ZodPipe<..., ...>>;
   }, $strict>], "type">;
-  notice: ZodOptional<ZodDiscriminatedUnion<[ZodObject<{
-     type: ZodLiteral<...>;
-     message: ZodPipe<..., ...>;
-     links: ZodOptional<...>;
+  notice: ZodOptional<ZodLazy<ZodDiscriminatedUnion<[ZodObject<{
+     type: ...;
+     message: ...;
+     links: ...;
    }, $strict>, ZodObject<{
-     type: ZodLiteral<...>;
-     message: ZodPipe<..., ...>;
+     type: ...;
+     message: ...;
    }, $strict>, ZodObject<{
-     type: ZodLiteral<...>;
-     url: ZodURL;
-     code: ZodOptional<...>;
-     message: ZodOptional<...>;
+     type: ...;
+     url: ...;
+     code: ...;
+     message: ...;
    }, $strict>, ZodObject<{
-     type: ZodLiteral<...>;
-     message: ZodPipe<..., ...>;
-  }, $strict>], "type">>;
+     type: ...;
+     message: ...;
+  }, $strict>], "type">>>;
   next: ZodObject<{
-     arguments: ZodRecord<ZodString, ZodJSONSchema>;
+     arguments: ZodLazy<ZodRecord<ZodString, ZodJSONSchema>>;
      answer: ZodString;
   }, $strict>;
 }, $strict>], "type">, ZodTransform<
@@ -362,6 +357,7 @@ function catalogCommands(catalog, invoke): readonly Readonly<{
      };
      slash?: {
         aliases: readonly string[];
+        consumesDraft?: boolean;
         order?: number;
         arguments?: {
            hint: string;
@@ -454,45 +450,45 @@ readonly `Readonly`\<\{ `id`: `string`; `title`: `string`; `category`: `string`;
 `values`: readonly `string`[]; \}; `agent?`: \{ `keybind?`: `string`; `order?`:
 `number`; \}; `help?`: \{ `order?`: `number`; \}; `menu?`: \{ `order?`:
 `number`; \}; `palette?`: \{ `order?`: `number`; \}; `slash?`: \{ `aliases`:
-readonly `string`[]; `order?`: `number`; `arguments?`: \{ `hint`: `string`;
-`words?`: readonly ...[]; `text?`: \{ `field`: ...; `arguments`: ...;
-`requestIdField?`: ...; \}; \}; \}; \}; `action?`: \{ `inputSchema?`: \{
-\[`key`: `string`\]: \| `string` \| `number` \| `boolean` \| readonly string \|
-number \| boolean \| readonly (string \| number \| boolean \| readonly (string
-\| number \| boolean \| readonly (string \| number \| boolean \| readonly
-(string \| number \| boolean \| readonly (string \| number \| boolean \|
-readonly (string \| ... 4 more ... \| null)\[\] \| \{ ...; \} \| null)\[\] \| \{
-...; \} \| null)\[\] \| \{ ...; \} \| ...[] \| \{ \[`key`: `string`\]: string \|
-number \| boolean \| readonly (string \| number \| boolean \| readonly (string
-\| number \| boolean \| readonly (string \| number \| boolean \| readonly
-(string \| number \| boolean \| readonly (string \| number \| boolean \|
-readonly (string \| ... 4 more ... \| null)\[\] \| \{ ...; \} \| null)\[\] \| \{
-...; \} \| null)\[\] \| \{ ...; \} \| ...; \} \| `null`; \}; `outputSchema?`: \{
-\[`key`: `string`\]: \| `string` \| `number` \| `boolean` \| readonly string \|
-number \| boolean \| readonly (string \| number \| boolean \| readonly (string
-\| number \| boolean \| readonly (string \| number \| boolean \| readonly
-(string \| number \| boolean \| readonly (string \| number \| boolean \|
-readonly (string \| ... 4 more ... \| null)\[\] \| \{ ...; \} \| null)\[\] \| \{
-...; \} \| null)\[\] \| \{ ...; \} \| ...[] \| \{ \[`key`: `string`\]: string \|
-number \| boolean \| readonly (string \| number \| boolean \| readonly (string
-\| number \| boolean \| readonly (string \| number \| boolean \| readonly
-(string \| number \| boolean \| readonly (string \| number \| boolean \|
-readonly (string \| ... 4 more ... \| null)\[\] \| \{ ...; \} \| null)\[\] \| \{
-...; \} \| null)\[\] \| \{ ...; \} \| ...; \} \| `null`; \}; `presentation?`: \|
-\{ `type`: `"action"`; \} \| \{ `type`: `"custom"`; `data`: \{ \[`key`:
-`string`\]: \| `string` \| `number` \| `boolean` \| readonly string \| number \|
-boolean \| readonly (string \| number \| boolean \| readonly (string \| number
+readonly `string`[]; `consumesDraft?`: `boolean`; `order?`: `number`;
+`arguments?`: \{ `hint`: `string`; `words?`: readonly ...[]; `text?`: \{
+`field`: ...; `arguments`: ...; `requestIdField?`: ...; \}; \}; \}; \};
+`action?`: \{ `inputSchema?`: \{ \[`key`: `string`\]: \| `string` \| `number` \|
+`boolean` \| readonly string \| number \| boolean \| readonly (string \| number
 \| boolean \| readonly (string \| number \| boolean \| readonly (string \|
 number \| boolean \| readonly (string \| number \| boolean \| readonly (string
-\| ... 4 more ... \| null)\[\] \| \{ ...; \} \| null)\[\] \| \{ ...; \} \|
-null)\[\] \| \{ ...; \} \| ...[] \| \{ \[`key`: `string`\]: string \| number \|
-boolean \| readonly (string \| number \| boolean \| readonly (string \| number
+\| number \| boolean \| readonly (string \| ... 4 more ... \| null)\[\] \| \{
+...; \} \| null)\[\] \| \{ ...; \} \| null)\[\] \| \{ ...; \} \| ...[] \| \{
+\[`key`: `string`\]: string \| number \| boolean \| readonly (string \| number
 \| boolean \| readonly (string \| number \| boolean \| readonly (string \|
 number \| boolean \| readonly (string \| number \| boolean \| readonly (string
-\| ... 4 more ... \| null)\[\] \| \{ ...; \} \| null)\[\] \| \{ ...; \} \|
-null)\[\] \| \{ ...; \} \| ...; \} \| `null`; \}; \} \| \{ `type`: `"choice"`;
-`options`: readonly `object`[]; \} \| \{ `type`: `"form"`; `submitLabel?`:
-`string`; \} \| \{ `type`: `"confirmation"`; `message`: `string`;
-`confirmLabel?`: `string`; `cancelLabel?`: `string`; \}; \}; `availability?`: ()
-=> [`WhistleAvailability`](wire.md#whistleavailability); `handler`: (`input`) =>
-`unknown`; \}\>[]
+\| number \| boolean \| readonly (string \| ... 4 more ... \| null)\[\] \| \{
+...; \} \| null)\[\] \| \{ ...; \} \| null)\[\] \| \{ ...; \} \| ...; \} \|
+`null`; \}; `outputSchema?`: \{ \[`key`: `string`\]: \| `string` \| `number` \|
+`boolean` \| readonly string \| number \| boolean \| readonly (string \| number
+\| boolean \| readonly (string \| number \| boolean \| readonly (string \|
+number \| boolean \| readonly (string \| number \| boolean \| readonly (string
+\| number \| boolean \| readonly (string \| ... 4 more ... \| null)\[\] \| \{
+...; \} \| null)\[\] \| \{ ...; \} \| null)\[\] \| \{ ...; \} \| ...[] \| \{
+\[`key`: `string`\]: string \| number \| boolean \| readonly (string \| number
+\| boolean \| readonly (string \| number \| boolean \| readonly (string \|
+number \| boolean \| readonly (string \| number \| boolean \| readonly (string
+\| number \| boolean \| readonly (string \| ... 4 more ... \| null)\[\] \| \{
+...; \} \| null)\[\] \| \{ ...; \} \| null)\[\] \| \{ ...; \} \| ...; \} \|
+`null`; \}; `presentation?`: \| \{ `type`: `"action"`; \} \| \{ `type`:
+`"custom"`; `data`: \{ \[`key`: `string`\]: \| `string` \| `number` \| `boolean`
+\| readonly string \| number \| boolean \| readonly (string \| number \| boolean
+\| readonly (string \| number \| boolean \| readonly (string \| number \|
+boolean \| readonly (string \| number \| boolean \| readonly (string \| number
+\| boolean \| readonly (string \| ... 4 more ... \| null)\[\] \| \{ ...; \} \|
+null)\[\] \| \{ ...; \} \| null)\[\] \| \{ ...; \} \| ...[] \| \{ \[`key`:
+`string`\]: string \| number \| boolean \| readonly (string \| number \| boolean
+\| readonly (string \| number \| boolean \| readonly (string \| number \|
+boolean \| readonly (string \| number \| boolean \| readonly (string \| number
+\| boolean \| readonly (string \| ... 4 more ... \| null)\[\] \| \{ ...; \} \|
+null)\[\] \| \{ ...; \} \| null)\[\] \| \{ ...; \} \| ...; \} \| `null`; \}; \}
+\| \{ `type`: `"choice"`; `options`: readonly `object`[]; \} \| \{ `type`:
+`"form"`; `submitLabel?`: `string`; \} \| \{ `type`: `"confirmation"`;
+`message`: `string`; `confirmLabel?`: `string`; `cancelLabel?`: `string`; \};
+\}; `availability?`: () => [`WhistleAvailability`](wire.md#whistleavailability);
+`handler`: (`input`) => `unknown`; \}\>[]
