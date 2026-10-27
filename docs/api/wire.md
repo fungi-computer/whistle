@@ -754,8 +754,34 @@ const WhistlePromptSchema: ZodDiscriminatedUnion<
   [
     ZodObject<
       {
+        summary: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+        facts: ZodOptional<
+          ZodArray<
+            ZodObject<
+              {
+                label: ZodPipe<ZodLazy<ZodString>, ZodString>;
+                value: ZodPipe<ZodLazy<ZodString>, ZodString>;
+              },
+              $strict
+            >
+          >
+        >;
+        body: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+        bodyLabel: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+        details: ZodOptional<
+          ZodArray<
+            ZodObject<
+              {
+                label: ZodPipe<ZodLazy<ZodString>, ZodString>;
+                value: ZodPipe<ZodLazy<ZodString>, ZodString>;
+              },
+              $strict
+            >
+          >
+        >;
         type: ZodLiteral<"choice">;
         message: ZodPipe<ZodLazy<ZodString>, ZodString>;
+        current: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
         collapsedGroup: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
         options: ZodArray<
           ZodObject<
@@ -764,6 +790,7 @@ const WhistlePromptSchema: ZodDiscriminatedUnion<
               label: ZodPipe<ZodLazy<ZodString>, ZodString>;
               description: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
               group: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+              destructive: ZodOptional<ZodLiteral<true>>;
             },
             $strict
           >
@@ -773,6 +800,31 @@ const WhistlePromptSchema: ZodDiscriminatedUnion<
     >,
     ZodObject<
       {
+        summary: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+        facts: ZodOptional<
+          ZodArray<
+            ZodObject<
+              {
+                label: ZodPipe<ZodLazy<ZodString>, ZodString>;
+                value: ZodPipe<ZodLazy<ZodString>, ZodString>;
+              },
+              $strict
+            >
+          >
+        >;
+        body: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+        bodyLabel: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+        details: ZodOptional<
+          ZodArray<
+            ZodObject<
+              {
+                label: ZodPipe<ZodLazy<ZodString>, ZodString>;
+                value: ZodPipe<ZodLazy<ZodString>, ZodString>;
+              },
+              $strict
+            >
+          >
+        >;
         type: ZodLiteral<"text">;
         message: ZodPipe<ZodLazy<ZodString>, ZodString>;
         placeholder: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
@@ -782,10 +834,36 @@ const WhistlePromptSchema: ZodDiscriminatedUnion<
     >,
     ZodObject<
       {
+        summary: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+        facts: ZodOptional<
+          ZodArray<
+            ZodObject<
+              {
+                label: ZodPipe<ZodLazy<ZodString>, ZodString>;
+                value: ZodPipe<ZodLazy<ZodString>, ZodString>;
+              },
+              $strict
+            >
+          >
+        >;
+        body: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+        bodyLabel: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+        details: ZodOptional<
+          ZodArray<
+            ZodObject<
+              {
+                label: ZodPipe<ZodLazy<ZodString>, ZodString>;
+                value: ZodPipe<ZodLazy<ZodString>, ZodString>;
+              },
+              $strict
+            >
+          >
+        >;
         type: ZodLiteral<"confirmation">;
         message: ZodPipe<ZodLazy<ZodString>, ZodString>;
         confirmLabel: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
         cancelLabel: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+        destructive: ZodOptional<ZodLiteral<true>>;
       },
       $strict
     >,

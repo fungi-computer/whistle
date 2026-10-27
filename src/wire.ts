@@ -316,14 +316,39 @@ export const parse: typeof WhistleAgentProjectionsSchema.parse = (value) =>
 export const interactionTextLimit = 8192;
 
 const shortText = meaningful.pipe(z.string().max(interactionTextLimit));
+/** A modal title: human words, short enough to read at a glance. */
+export const interactionTitleLimit = 60;
+const promptTitle = meaningful.pipe(z.string().max(interactionTitleLimit));
 const webUrl = z.url({ protocol: /^https?$/u });
+
+const fact = z.object({ label: shortText, value: shortText }).strict();
+
+/**
+ * The modal anatomy every prompt shares. `message` is the title (human words,
+ * at most 60 characters); the rest is optional and renders in this order.
+ */
+const modalFields = {
+  /** One plain sentence under the title: what happened or what the choice does. */
+  summary: shortText.optional(),
+  /** Up to four short labelled values shown under the summary. */
+  facts: z.array(fact).max(4).optional(),
+  /** Long user text; renderers show three lines and the rest under details. */
+  body: shortText.optional(),
+  /** Short label for `body`, drawn in the facts' label column. */
+  bodyLabel: shortText.optional(),
+  /** Everything else (full text, IDs, paths, raw errors), shown on demand. */
+  details: z.array(fact).max(24).optional(),
+};
 
 /** Validate renderer-neutral interaction prompts received from a host. */
 export const WhistlePromptSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("choice"),
-      message: shortText,
+      message: promptTitle,
+      ...modalFields,
+      /** The option `value` that is current: marked and focused first. */
+      current: shortText.optional(),
       collapsedGroup: shortText.optional(),
       options: z
         .array(
@@ -333,6 +358,8 @@ export const WhistlePromptSchema = z.discriminatedUnion("type", [
               label: shortText,
               description: shortText.optional(),
               group: shortText.optional(),
+              /** Drawn in the error tone; list it last and confirm it next. */
+              destructive: z.literal(true).optional(),
             })
             .strict(),
         )
@@ -343,7 +370,8 @@ export const WhistlePromptSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("text"),
-      message: shortText,
+      message: promptTitle,
+      ...modalFields,
       placeholder: shortText.optional(),
       secret: z.boolean().optional(),
     })
@@ -351,9 +379,12 @@ export const WhistlePromptSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("confirmation"),
-      message: shortText,
+      message: promptTitle,
+      ...modalFields,
       confirmLabel: shortText.optional(),
       cancelLabel: shortText.optional(),
+      /** Irreversible: cancel comes first and is focused; confirm is error-toned. */
+      destructive: z.literal(true).optional(),
     })
     .strict(),
 ]);

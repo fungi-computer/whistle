@@ -143,20 +143,37 @@ const WhistleCatalogStepSchema: ZodPipe<ZodDiscriminatedUnion<[ZodObject<{
 }, $strict>, ZodObject<{
   type: ZodLiteral<"prompt">;
   prompt: ZodDiscriminatedUnion<[ZodObject<{
+     summary: ZodOptional<ZodPipe<..., ...>>;
+     facts: ZodOptional<ZodArray<...>>;
+     body: ZodOptional<ZodPipe<..., ...>>;
+     bodyLabel: ZodOptional<ZodPipe<..., ...>>;
+     details: ZodOptional<ZodArray<...>>;
      type: ZodLiteral<"choice">;
      message: ZodPipe<ZodLazy<...>, ZodString>;
+     current: ZodOptional<ZodPipe<..., ...>>;
      collapsedGroup: ZodOptional<ZodPipe<..., ...>>;
      options: ZodArray<ZodObject<..., ...>>;
    }, $strict>, ZodObject<{
+     summary: ZodOptional<ZodPipe<..., ...>>;
+     facts: ZodOptional<ZodArray<...>>;
+     body: ZodOptional<ZodPipe<..., ...>>;
+     bodyLabel: ZodOptional<ZodPipe<..., ...>>;
+     details: ZodOptional<ZodArray<...>>;
      type: ZodLiteral<"text">;
      message: ZodPipe<ZodLazy<...>, ZodString>;
      placeholder: ZodOptional<ZodPipe<..., ...>>;
      secret: ZodOptional<ZodBoolean>;
    }, $strict>, ZodObject<{
+     summary: ZodOptional<ZodPipe<..., ...>>;
+     facts: ZodOptional<ZodArray<...>>;
+     body: ZodOptional<ZodPipe<..., ...>>;
+     bodyLabel: ZodOptional<ZodPipe<..., ...>>;
+     details: ZodOptional<ZodArray<...>>;
      type: ZodLiteral<"confirmation">;
      message: ZodPipe<ZodLazy<...>, ZodString>;
      confirmLabel: ZodOptional<ZodPipe<..., ...>>;
      cancelLabel: ZodOptional<ZodPipe<..., ...>>;
+     destructive: ZodOptional<ZodLiteral<...>>;
   }, $strict>], "type">;
   notice: ZodOptional<ZodLazy<ZodDiscriminatedUnion<[ZodObject<{
      type: ...;
@@ -205,22 +222,39 @@ const WhistleCatalogStepSchema: ZodPipe<ZodDiscriminatedUnion<[ZodObject<{
   | Readonly<{
   type: "prompt";
   prompt:   | {
+     summary?: string;
+     facts?: object[];
+     body?: string;
+     bodyLabel?: string;
+     details?: object[];
      type: "choice";
      message: string;
+     current?: string;
      collapsedGroup?: string;
      options: object[];
    }
      | {
+     summary?: string;
+     facts?: object[];
+     body?: string;
+     bodyLabel?: string;
+     details?: object[];
      type: "text";
      message: string;
      placeholder?: string;
      secret?: boolean;
    }
      | {
+     summary?: string;
+     facts?: object[];
+     body?: string;
+     bodyLabel?: string;
+     details?: object[];
      type: "confirmation";
      message: string;
      confirmLabel?: string;
      cancelLabel?: string;
+     destructive?: true;
    };
   notice?:   | {
      type: "info";
@@ -272,22 +306,39 @@ const WhistleCatalogStepSchema: ZodPipe<ZodDiscriminatedUnion<[ZodObject<{
   | {
   type: "prompt";
   prompt:   | {
+     summary?: string;
+     facts?: object[];
+     body?: string;
+     bodyLabel?: string;
+     details?: object[];
      type: "choice";
      message: string;
+     current?: string;
      collapsedGroup?: string;
      options: object[];
    }
      | {
+     summary?: string;
+     facts?: object[];
+     body?: string;
+     bodyLabel?: string;
+     details?: object[];
      type: "text";
      message: string;
      placeholder?: string;
      secret?: boolean;
    }
      | {
+     summary?: string;
+     facts?: object[];
+     body?: string;
+     bodyLabel?: string;
+     details?: object[];
      type: "confirmation";
      message: string;
      confirmLabel?: string;
      cancelLabel?: string;
+     destructive?: true;
    };
   notice?:   | {
      type: "info";

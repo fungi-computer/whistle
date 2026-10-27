@@ -1,5 +1,16 @@
 # @fungi.computer/whistle
 
+## 0.2.0
+
+### Minor Changes
+
+- Changes since 0.1.0:
+
+  - fix(whistle,tui): cap prompt titles at 60 in the contract; waiting cancel is
+    not timed out
+  - feat(tui): shared modal anatomy with safe-first confirmations and Goal
+    paused
+
 ## 0.1.0
 
 ### Minor Changes
