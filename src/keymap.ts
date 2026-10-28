@@ -69,10 +69,11 @@ export function createWhistleKeymapAdapter(
     )
       return;
     dispose();
-    const commandIds = new Set(snapshot.bindings.map((row) => row.commandId));
-    const commands = [...commandIds].map((commandId) => ({
+    const commands = [
+      ...new Map(snapshot.bindings.map((row) => [row.commandId, row.command])),
+    ].map(([commandId, command]) => ({
       name: commandId,
-      run: () => whistle.execute(commandId, { origin }).then(executionResult),
+      run: () => whistle.execute(command, { origin }).then(executionResult),
     }));
     dispose = hostKeymap.registerLayer({ bindings, commands });
     projected = bindings;

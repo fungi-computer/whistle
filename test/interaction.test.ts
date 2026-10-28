@@ -210,7 +210,7 @@ describe("interaction host", () => {
     const dynamic: WhistlePrompt =
       host.snapshot().prompt?.request ?? confirmation;
     expectTypeOf(parsePromptAnswer(dynamic, false)).toEqualTypeOf<
-      string | boolean
+      string | boolean | { selected: string[]; text?: string }
     >();
   });
 
@@ -326,7 +326,10 @@ describe("runtime presenter", () => {
         },
       ],
     });
-    const outcome = whistle.execute("steps:work", { origin: "browser" });
+    const outcome = whistle.execute(
+      { namespace: "steps", id: "work" },
+      { origin: "browser" },
+    );
     try {
       await vi.waitFor(() => {
         expect(host.snapshot().retryable).toBe(true);
@@ -426,18 +429,30 @@ describe("runtime presenter", () => {
         },
       ],
     });
-    await whistle.execute("account:login", { origin: "slash" });
+    await whistle.execute(
+      { namespace: "account", id: "login" },
+      { origin: "slash" },
+    );
     expect(seen).toBe(true);
-    await whistle.execute("account:login", { origin: "agent" });
+    await whistle.execute(
+      { namespace: "account", id: "login" },
+      { origin: "agent" },
+    );
     expect(seen).toBe(false);
-    await whistle.execute("account:broken", { origin: "menu" });
+    await whistle.execute(
+      { namespace: "account", id: "broken" },
+      { origin: "menu" },
+    );
     expect(opened).toEqual(["account:login", "account:broken"]);
     expect(ends).toEqual([
       { status: "handled" },
       { status: "failed", message: "Refused" },
     ]);
     dispose();
-    await whistle.execute("account:login", { origin: "slash" });
+    await whistle.execute(
+      { namespace: "account", id: "login" },
+      { origin: "slash" },
+    );
     expect(seen).toBe(false);
   });
 
@@ -461,10 +476,13 @@ describe("runtime presenter", () => {
         },
       ],
     });
-    await whistle.execute("account:login", {
-      origin: "slash",
-      interaction: own.interaction,
-    });
+    await whistle.execute(
+      { namespace: "account", id: "login" },
+      {
+        origin: "slash",
+        interaction: own.interaction,
+      },
+    );
     expect(received).toBe(own.interaction);
     expect(opened).toEqual([]);
   });

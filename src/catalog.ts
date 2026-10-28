@@ -4,6 +4,7 @@ import {
   WhistleActionError,
   type WhistleCommand,
   type WhistleCommandDefinition,
+  type WhistleDecisionAnswer,
   type WhistleExecutionInput,
   type WhistleJsonObject,
   type WhistleJsonValue,
@@ -111,6 +112,13 @@ export type WhistleCatalogStepV1 = ReadonlySchemaValue<
 export const parseCatalogStep: typeof WhistleCatalogStepSchema.parse = (
   value,
 ) => WhistleCatalogStepSchema.parse(value);
+
+/** A decision's answer as the JSON a backend receives it. */
+function decisionJson(answer: WhistleDecisionAnswer): WhistleJsonObject {
+  return answer.text === undefined
+    ? { selected: answer.selected }
+    : { selected: answer.selected, text: answer.text };
+}
 
 function initialArguments(
   definition: WhistleCommandDefinition,
@@ -251,7 +259,10 @@ export function catalogCommands(
             args = reply.next.arguments;
             continue;
           }
-          const answer = await interaction.prompt(reply.prompt);
+          const answer =
+            reply.prompt.type === "decision"
+              ? decisionJson(await interaction.prompt(reply.prompt))
+              : await interaction.prompt(reply.prompt);
           args = { ...reply.next.arguments, [reply.next.answer]: answer };
         }
         throw new WhistleActionError(

@@ -1,5 +1,19 @@
 # @fungi.computer/whistle
 
+## 0.3.0
+
+### Minor Changes
+
+- Changes since 0.2.0:
+
+  - refactor(whistle)!: execute commands by their typed key; only Whistle mints
+    ids
+  - fix(whistle): mint the command handle through its branded schema
+  - fix(whistle): key commands by a typed namespace and id, not a rebuilt string
+  - feat(parakeet): answer tool approvals in the composer on the terminal and
+    the web
+  - feat(parakeet): answer questions in the composer on the terminal and the web
+
 ## 0.2.0
 
 ### Minor Changes

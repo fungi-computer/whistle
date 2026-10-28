@@ -5,7 +5,12 @@ import {
   type WhistleAvailability,
   type WhistleCommandDefinition,
 } from "../src/index.js";
-import { WhistleAgentProjectionSchema, parse } from "../src/wire.js";
+import {
+  WhistleAgentProjectionSchema,
+  decodePromptAnswer,
+  parse,
+  parsePrompt,
+} from "../src/wire.js";
 
 const validCommandDefinition: WhistleCommandDefinition = {
   id: "open",
@@ -127,4 +132,95 @@ it("rejects malformed fixed rows and presentation fields", () => {
       action: { presentation: { type: "custom", data: {} } },
     }),
   ).toThrow();
+});
+
+const decisionPrompt = (multiple?: boolean) =>
+  parsePrompt({
+    type: "decision",
+    message: "Which database?",
+    options: [
+      { value: "pg", label: "Postgres", description: "Recommended" },
+      { value: "sqlite", label: "SQLite" },
+    ],
+    other: { label: "Other…", maxLength: 40 },
+    multiple,
+  });
+
+it("decision answer rejects unknown labels and empty single answers", () => {
+  const single = decisionPrompt();
+  if (single.type !== "decision") throw new Error("expected a decision");
+  const accepted = (value: Parameters<typeof decodePromptAnswer>[1]) =>
+    decodePromptAnswer(single, value).kind === "accepted";
+  expect(accepted({ selected: ["pg"] })).toBe(true);
+  expect(accepted({ selected: [], text: "MySQL" })).toBe(true);
+  expect(accepted({ selected: ["mysql"] })).toBe(false);
+  expect(accepted({ selected: [] })).toBe(false);
+  expect(accepted({ selected: [], text: "   " })).toBe(false);
+  expect(accepted({ selected: ["pg", "sqlite"] })).toBe(false);
+  expect(accepted({ selected: ["pg"], text: "and more" })).toBe(false);
+  expect(accepted({ selected: [], text: "x".repeat(41) })).toBe(false);
+  expect(accepted("pg")).toBe(false);
+});
+
+it("a multiple decision takes each offered option once", () => {
+  const multiple = decisionPrompt(true);
+  if (multiple.type !== "decision") throw new Error("expected a decision");
+  const accepted = (value: Parameters<typeof decodePromptAnswer>[1]) =>
+    decodePromptAnswer(multiple, value).kind === "accepted";
+  expect(accepted({ selected: ["pg", "sqlite"] })).toBe(true);
+  expect(accepted({ selected: ["pg", "pg"] })).toBe(false);
+  expect(accepted({ selected: ["pg"], text: "and Redis" })).toBe(true);
+  expect(accepted({ selected: [] })).toBe(false);
+});
+
+it("a decision prompt rejects repeated option values", () => {
+  expect(() =>
+    parsePrompt({
+      type: "decision",
+      message: "Which?",
+      options: [
+        { value: "a", label: "A" },
+        { value: "a", label: "B" },
+      ],
+      other: { label: "Other…", maxLength: 10 },
+    }),
+  ).toThrow();
+});
+
+it("a decision may offer only options, and its Esc and blank answers must be offered", () => {
+  const options = [
+    { value: "back", label: "Back" },
+    { value: "go", label: "Go" },
+  ];
+  const confirm = parsePrompt({
+    type: "decision",
+    message: "Sure?",
+    options,
+    escape: "back",
+  });
+  if (confirm.type !== "decision") throw new Error("expected a decision");
+  const accepted = (value: Parameters<typeof decodePromptAnswer>[1]) =>
+    decodePromptAnswer(confirm, value).kind === "accepted";
+  expect(accepted({ selected: ["go"] })).toBe(true);
+  // With no Other row there is nowhere to write.
+  expect(accepted({ selected: [], text: "hm" })).toBe(false);
+  expect(() =>
+    parsePrompt({ type: "decision", message: "Sure?", options, escape: "no" }),
+  ).toThrow();
+  expect(() =>
+    parsePrompt({
+      type: "decision",
+      message: "Sure?",
+      options,
+      other: { label: "Other…", maxLength: 10, blank: "no" },
+    }),
+  ).toThrow();
+  expect(
+    parsePrompt({
+      type: "decision",
+      message: "Sure?",
+      options,
+      other: { label: "Other…", maxLength: 10, blank: "back" },
+    }).type,
+  ).toBe("decision");
 });

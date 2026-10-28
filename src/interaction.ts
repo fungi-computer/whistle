@@ -11,6 +11,7 @@ import {
   parsePrompt,
   createPromptAnswerDecoder,
   type WhistlePromptOf,
+  type WhistleAnswerValue,
   type WhistlePromptAnswers,
 } from "./wire.js";
 
@@ -77,7 +78,7 @@ export type WhistleInteractionHost = Readonly<{
   /** Resume only the failed operation; ignored while working or after dismissal. */
   retry: () => void;
   /** Answer the pending prompt; a stale sequence or invalid value is ignored. */
-  answer: (sequence: number, value: string | boolean) => boolean;
+  answer: (sequence: number, value: WhistleAnswerValue) => boolean;
   /** Dismiss: abort the attempt, or close a settled failure. */
   cancel: () => void;
 }>;
@@ -85,7 +86,7 @@ export type WhistleInteractionHost = Readonly<{
 type Waiting = Readonly<{
   sequence: number;
   request: WhistlePrompt;
-  resolve: (value: string | boolean) => boolean;
+  resolve: (value: WhistleAnswerValue) => boolean;
 }>;
 
 /**

@@ -5,6 +5,7 @@ import {
   WhistleActionError,
   type WhistleAvailability,
   createWhistleKeymapAdapter,
+  sameWhistleCommand,
   scopeSnapshot,
   type WhistleCommand,
   type WhistleCommandProjections,
@@ -109,7 +110,7 @@ it("keeps one contribution lease through canonical invocation, update, and dispo
 
   expect(runtime.snapshot().menu[0]?.commandId).toBe("app:save");
   await expect(
-    runtime.execute("app:save", { origin: "menu" }),
+    runtime.execute({ namespace: "app", id: "save" }, { origin: "menu" }),
   ).resolves.toEqual({ status: "handled", result: { origin: "menu" } });
   lease.update([
     {
@@ -124,7 +125,7 @@ it("keeps one contribution lease through canonical invocation, update, and dispo
   lease.dispose();
   expect(runtime.snapshot().menu).toEqual([]);
   await expect(
-    runtime.execute("app:save", { origin: "menu" }),
+    runtime.execute({ namespace: "app", id: "save" }, { origin: "menu" }),
   ).resolves.toEqual({ status: "missing" });
 });
 
@@ -157,6 +158,7 @@ it("one definition projects binding palette slash help menu and agent rows", () 
   expect(runtime.snapshot().bindings).toEqual([
     {
       commandId: "demo:open",
+      command: { namespace: "demo", id: "open" },
       availability: { status: "available" },
       sourceId: "source-a",
       title: "Open Thing",
@@ -169,6 +171,7 @@ it("one definition projects binding palette slash help menu and agent rows", () 
   expect(runtime.snapshot().palette).toEqual([
     {
       commandId: "demo:open",
+      command: { namespace: "demo", id: "open" },
       availability: { status: "available" },
       sourceId: "source-a",
       title: "Open Thing",
@@ -180,6 +183,7 @@ it("one definition projects binding palette slash help menu and agent rows", () 
   expect(runtime.snapshot().slash).toEqual([
     {
       commandId: "demo:open",
+      command: { namespace: "demo", id: "open" },
       availability: { status: "available" },
       sourceId: "source-a",
       title: "Open Thing",
@@ -192,6 +196,7 @@ it("one definition projects binding palette slash help menu and agent rows", () 
   expect(runtime.snapshot().help).toEqual([
     {
       commandId: "demo:open",
+      command: { namespace: "demo", id: "open" },
       availability: { status: "available" },
       sourceId: "source-a",
       title: "Open Thing",
@@ -203,6 +208,7 @@ it("one definition projects binding palette slash help menu and agent rows", () 
   expect(runtime.snapshot().menu).toEqual([
     {
       commandId: "demo:open",
+      command: { namespace: "demo", id: "open" },
       availability: { status: "available" },
       sourceId: "source-a",
       title: "Open Thing",
@@ -214,6 +220,7 @@ it("one definition projects binding palette slash help menu and agent rows", () 
   expect(runtime.snapshot().agent).toEqual([
     {
       commandId: "demo:open",
+      command: { namespace: "demo", id: "open" },
       availability: { status: "available" },
       sourceId: "source-a",
       title: "Open Thing",
@@ -248,7 +255,7 @@ it("keeps unavailable actions discoverable and rechecks before dispatch", async 
   expect(runtime.snapshot()).toBe(before);
   availability = { status: "unavailable", reason: "Policy is locked" };
   await expect(
-    runtime.execute("policy:save", { origin: "agent" }),
+    runtime.execute({ namespace: "policy", id: "save" }, { origin: "agent" }),
   ).resolves.toEqual(availability);
   expect(handler).not.toHaveBeenCalled();
   const after = runtime.snapshot();
@@ -259,7 +266,10 @@ it("keeps unavailable actions discoverable and rechecks before dispatch", async 
   expect(runtime.snapshot()).toBe(after);
   availability = { status: "available" };
   await expect(
-    runtime.execute("policy:save", { origin: "keyboard" }),
+    runtime.execute(
+      { namespace: "policy", id: "save" },
+      { origin: "keyboard" },
+    ),
   ).resolves.toEqual({
     status: "handled",
     result: { receipt: "saved" },
@@ -318,7 +328,10 @@ it("returns explicit failures as JSON data while preserving domain receipts", as
       },
     ],
   });
-  const outcome = await runtime.execute("policy:save", { origin: "agent" });
+  const outcome = await runtime.execute(
+    { namespace: "policy", id: "save" },
+    { origin: "agent" },
+  );
   expect(JSON.parse(JSON.stringify(outcome))).toEqual({
     status: "failed",
     error: {
@@ -376,10 +389,13 @@ it("dispatches typed action arguments and returns its typed result", async () =>
   });
 
   await expect(
-    runtime.execute("model:select", {
-      origin: "programmatic",
-      arguments: { modelId: "gpt-5.6-luna", reasoning: "low" },
-    }),
+    runtime.execute(
+      { namespace: "model", id: "select" },
+      {
+        origin: "programmatic",
+        arguments: { modelId: "gpt-5.6-luna", reasoning: "low" },
+      },
+    ),
   ).resolves.toEqual({
     status: "handled",
     result: { selected: "gpt-5.6-luna:low" },
@@ -448,24 +464,33 @@ it("reuses the public handler contract in heterogeneous contributions", async ()
     commands,
   });
 
-  for (const commandId of ["host:select", "host:select-again"])
+  for (const id of ["select", "select-again"])
     await expect(
-      runtime.execute(commandId, {
-        origin: "programmatic",
-        arguments: { modelId: "luna", reasoning: "low" },
-      }),
+      runtime.execute(
+        { namespace: "host", id },
+        {
+          origin: "programmatic",
+          arguments: { modelId: "luna", reasoning: "low" },
+        },
+      ),
     ).resolves.toEqual({
       status: "handled",
       result: { selected: "luna:low" },
     });
   await expect(
-    runtime.execute("host:increment", {
-      origin: "programmatic",
-      arguments: { count: 2 },
-    }),
+    runtime.execute(
+      { namespace: "host", id: "increment" },
+      {
+        origin: "programmatic",
+        arguments: { count: 2 },
+      },
+    ),
   ).resolves.toEqual({ status: "handled", result: 3 });
   await expect(
-    runtime.execute("host:select", { origin: "programmatic" }),
+    runtime.execute(
+      { namespace: "host", id: "select" },
+      { origin: "programmatic" },
+    ),
   ).resolves.toEqual({ status: "handled" });
 });
 
@@ -1223,16 +1248,22 @@ it("forwards the caller signal and isolates concurrent invocation aborts", async
     ],
   });
 
-  const first = runtime.execute("abort:run", {
-    origin: "programmatic",
-    arguments: { id: "first" },
-    signal: controllers.first.signal,
-  });
-  const second = runtime.execute("abort:run", {
-    origin: "programmatic",
-    arguments: { id: "second" },
-    signal: controllers.second.signal,
-  });
+  const first = runtime.execute(
+    { namespace: "abort", id: "run" },
+    {
+      origin: "programmatic",
+      arguments: { id: "first" },
+      signal: controllers.first.signal,
+    },
+  );
+  const second = runtime.execute(
+    { namespace: "abort", id: "run" },
+    {
+      origin: "programmatic",
+      arguments: { id: "second" },
+      signal: controllers.second.signal,
+    },
+  );
   await Promise.resolve();
   expect(seenSignals.get("first")).toBe(controllers.first.signal);
   expect(seenSignals.get("second")).toBe(controllers.second.signal);
@@ -1371,7 +1402,10 @@ it("every origin uses one door with normalized in-scope execution outcomes", asy
 
   const outcomes = new Map<WhistleExecutionOrigin, WhistleExecutionOutcome>();
   for (const origin of origins)
-    outcomes.set(origin, await runtime.execute("demo:run", { origin }));
+    outcomes.set(
+      origin,
+      await runtime.execute({ namespace: "demo", id: "run" }, { origin }),
+    );
 
   expect(
     Object.fromEntries(
@@ -1396,9 +1430,17 @@ it("every origin uses one door with normalized in-scope execution outcomes", asy
     expect(handler).toHaveBeenCalledWith(expect.objectContaining({ origin }));
 
   expect(
-    await runtime.execute("demo:absent", { origin: "programmatic" }),
+    await runtime.execute(
+      { namespace: "demo", id: "absent" },
+      { origin: "programmatic" },
+    ),
   ).toEqual({ status: "missing" });
-  expect(await runtime.execute("   ", { origin: "programmatic" })).toEqual({
+  expect(
+    await runtime.execute(
+      { namespace: "demo", id: "   " },
+      { origin: "programmatic" },
+    ),
+  ).toEqual({
     status: "invalid",
   });
   expect(handler).toHaveBeenCalledTimes(origins.length);
@@ -1425,9 +1467,12 @@ it("close releases the graph without background work", async () => {
   );
   const beforeClose = runtime.snapshot();
   const beforeCloseBytes = JSON.stringify(beforeClose);
-  const runningExecution = runtime.execute("demo:run", {
-    origin: "programmatic",
-  });
+  const runningExecution = runtime.execute(
+    { namespace: "demo", id: "run" },
+    {
+      origin: "programmatic",
+    },
+  );
 
   expect(runtime.close).toBeTypeOf("function");
 
@@ -1459,7 +1504,10 @@ it("close releases the graph without background work", async () => {
   expect(runtime.snapshot()).toBe(closedSnapshot);
 
   await expect(
-    runtime.execute("demo:run", { origin: "programmatic" }),
+    runtime.execute(
+      { namespace: "demo", id: "run" },
+      { origin: "programmatic" },
+    ),
   ).resolves.toEqual({ status: "closed" });
   expect(handler).toHaveBeenCalledOnce();
 
@@ -1562,7 +1610,10 @@ it("scopes slash aliases per focus scope and lets the focused scope shadow globa
   ]);
   expect(none.bindings.map((row) => row.commandId)).toEqual(["shell:help"]);
   await expect(
-    runtime.execute("second-window:new", { origin: "programmatic" }),
+    runtime.execute(
+      { namespace: "second-window", id: "new" },
+      { origin: "programmatic" },
+    ),
   ).resolves.toEqual({ status: "handled" });
 });
 
@@ -1599,4 +1650,44 @@ it("projects draft consumption only when the slash command owner requests it", (
   expect(
     runtime.snapshot().slash.find((row) => row.alias === "edit"),
   ).not.toHaveProperty("consumesDraft");
+});
+
+it("keys an App surface's commands by a typed namespace and id, even when the namespace has colons", async () => {
+  const runtime = createWhistle();
+  runtime.contribute({
+    sourceId: "installation:inkcap",
+    namespace: "installation:inkcap",
+    commands: [
+      {
+        id: "open-file",
+        title: "Open File",
+        category: "File",
+        projections: { menu: { order: 2 } },
+        handler: () => "opened",
+      },
+    ],
+  });
+  const key = { namespace: "installation:inkcap", id: "open-file" };
+  const row = runtime
+    .snapshot()
+    .menu.find((candidate) => sameWhistleCommand(candidate.command, key));
+  expect(row?.command).toEqual(key);
+  if (!row) throw new Error("expected the open-file row");
+  expect(
+    await runtime.execute(row.command, { origin: "programmatic" }),
+  ).toEqual({ status: "handled", result: "opened" });
+  expect(() =>
+    runtime.contribute({
+      sourceId: "other",
+      namespace: "x",
+      commands: [
+        {
+          id: "a:b",
+          title: "Colon",
+          category: "File",
+          handler: () => undefined,
+        },
+      ],
+    }),
+  ).toThrow("command ID must not contain a colon");
 });

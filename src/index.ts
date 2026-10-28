@@ -12,14 +12,18 @@ import type {
   WhistlePromptAnswers,
   WhistleSlashArguments,
 } from "./wire.js";
+import { WhistleCommandIdSchema, type WhistleCommandId } from "./wire.js";
 
 export type {
   WhistleAction,
   WhistleActionPresentation,
   WhistleActionSchema,
+  WhistleAnswerValue,
   WhistleAvailability,
+  WhistleCommandId,
   WhistleCommandProjections,
   WhistleCommandDefinition,
+  WhistleDecisionAnswer,
   WhistleFailure,
   WhistleJsonObject,
   WhistleJsonValue,
@@ -211,6 +215,22 @@ export type WhistleCommand<Arguments = unknown, Result = unknown> = Readonly<{
   handler: WhistleCommandHandler<Arguments, Result>;
 }>;
 
+/** The typed identity of one command: its contribution namespace and local id. */
+export type WhistleCommandKey = Readonly<{
+  /** Namespace of the contribution that owns the command. */
+  namespace: string;
+  /** The command's namespace-local id, as its source declared it. */
+  id: string;
+}>;
+
+/** Whether two typed command identities name the same command. */
+export function sameWhistleCommand(
+  left: WhistleCommandKey,
+  right: WhistleCommandKey,
+): boolean {
+  return left.namespace === right.namespace && left.id === right.id;
+}
+
 /** One contribution of source-owned commands to a namespace. */
 export type WhistleContribution = Readonly<{
   /** Source authority identity for this contribution. */
@@ -229,8 +249,10 @@ export type WhistleContribution = Readonly<{
 
 /** Shared immutable metadata carried by each projection row. */
 export type WhistleProjectionRow = Readonly<{
-  /** Canonical namespace-local command identity. */
-  commandId: string;
+  /** Opaque render key; name and execute the command by {@link command}. */
+  commandId: WhistleCommandId;
+  /** The command's typed identity. */
+  command: WhistleCommandKey;
   /** Source authority identity. */
   sourceId: string;
   /** Focus scope of the contribution; omitted for global rows. */
@@ -320,9 +342,9 @@ export type WhistleRuntime = Readonly<{
    * @returns `undefined`; close produces no value.
    */
   close: () => undefined;
-  /** Execute one currently admitted command through the shared door. */
+  /** Execute one currently admitted command, named by its key, through the shared door. */
   execute: (
-    commandId: string,
+    command: WhistleCommandKey,
     input: WhistleExecutionInput,
   ) => Promise<WhistleExecutionOutcome>;
   /** Pull the current immutable semantic snapshot. */
@@ -490,12 +512,13 @@ export function createWhistle(): WhistleRuntime {
       );
     },
     execute: async (
-      commandId: string,
+      key: WhistleCommandKey,
       input: WhistleExecutionInput,
     ): Promise<WhistleExecutionOutcome> => {
-      if (commandId.trim().length === 0) return { status: "invalid" };
+      if (key.namespace.trim().length === 0 || key.id.trim().length === 0)
+        return { status: "invalid" };
       if (closed) return { status: "closed" };
-      const command = findCommand(commandId, liveContributions);
+      const command = findCommand(key, liveContributions);
       if (command === undefined) return { status: "missing" };
       let session: WhistleInteractionSession | undefined;
       try {
@@ -508,7 +531,7 @@ export function createWhistle(): WhistleRuntime {
           humanOrigins.has(input.origin)
         )
           session = presenter({
-            commandId,
+            commandId: mintCommandId(key.namespace, key.id),
             title: command.title,
           });
         const executionInput: WhistleExecutionInput & {
@@ -622,15 +645,23 @@ const maximumSlashWords = 32;
 const maximumLiveContributions = 64;
 const maximumLiveCommands = 256;
 
+/**
+ * Mint the opaque handle for one command. Command ids are colon-free, so the
+ * handle names exactly one namespace and id pair even when a namespace (an App
+ * surface id such as `installation:inkcap`) contains colons.
+ */
+function mintCommandId(namespace: string, id: string): WhistleCommandId {
+  return WhistleCommandIdSchema.parse(`${namespace}:${id}`);
+}
+
 function findCommand(
-  commandId: string,
+  key: WhistleCommandKey,
   liveContributions: readonly LiveContribution[],
 ): CopiedCommand | undefined {
   for (const live of liveContributions) {
-    for (const command of live.contribution.commands) {
-      if (`${live.contribution.namespace}:${command.id}` === commandId)
-        return command;
-    }
+    if (live.contribution.namespace !== key.namespace) continue;
+    for (const command of live.contribution.commands)
+      if (command.id === key.id) return command;
   }
   return undefined;
 }
@@ -641,7 +672,7 @@ function isEmptyContribution(contribution: WhistleContribution): boolean {
 
 function validateContribution(contribution: WhistleContribution): void {
   validateMeaningful(contribution.sourceId, "source ID");
-  validateMeaningful(contribution.namespace, "namespace", true);
+  validateMeaningful(contribution.namespace, "namespace");
   if (contribution.scope !== undefined)
     validateMeaningful(contribution.scope, "scope");
   for (const command of contribution.commands) validateCommand(command);
@@ -664,14 +695,14 @@ function validateConflicts(
   for (const live of liveContributions) {
     const sameScope = live.contribution.scope === contribution.scope;
     for (const command of live.contribution.commands) {
-      commandIds.add(`${live.contribution.namespace}:${command.id}`);
+      commandIds.add(mintCommandId(live.contribution.namespace, command.id));
       if (sameScope)
         for (const alias of command.projections?.slash?.aliases ?? [])
           slashAliases.add(alias);
     }
   }
   for (const command of contribution.commands) {
-    const commandId = `${contribution.namespace}:${command.id}`;
+    const commandId = mintCommandId(contribution.namespace, command.id);
     if (commandIds.has(commandId))
       reject("Canonical command ID is already registered");
     commandIds.add(commandId);
@@ -1211,7 +1242,11 @@ function unscopedRow(
   availability: WhistleAvailability,
 ): Omit<WhistleProjectionRow, "scope"> {
   const row = {
-    commandId: `${contribution.namespace}:${command.id}`,
+    commandId: mintCommandId(contribution.namespace, command.id),
+    command: Object.freeze({
+      namespace: contribution.namespace,
+      id: command.id,
+    }),
     sourceId: contribution.sourceId,
     title: command.title,
     category: command.category,

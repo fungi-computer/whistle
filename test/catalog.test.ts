@@ -113,7 +113,10 @@ describe("whistle.catalog/v1 contract", () => {
           },
         ),
       });
-      const running = runtime.execute("secret:connect", { origin: "slash" });
+      const running = runtime.execute(
+        { namespace: "secret", id: "connect" },
+        { origin: "slash" },
+      );
       const answer = async (value: string) => {
         await vi.waitFor(() => {
           expect(host.snapshot().prompt).toBeDefined();
@@ -183,7 +186,10 @@ describe("whistle.catalog/v1 contract", () => {
           : Promise.resolve({ type: "done" });
       }),
     });
-    const running = runtime.execute("two:goal", { origin: "slash" });
+    const running = runtime.execute(
+      { namespace: "two", id: "goal" },
+      { origin: "slash" },
+    );
     const answer = async (message: string, value: string) => {
       await vi.waitFor(() => {
         expect(host.snapshot().prompt?.request.message).toBe(message);
@@ -326,11 +332,14 @@ describe("catalog commands", () => {
       }),
     });
     const { interaction, asked, notices } = scriptedInteraction([true]);
-    const outcome = await whistle.execute("goal:goal", {
-      origin: "slash",
-      arguments: { action: "set", objective: "Ship" },
-      interaction,
-    });
+    const outcome = await whistle.execute(
+      { namespace: "goal", id: "goal" },
+      {
+        origin: "slash",
+        arguments: { action: "set", objective: "Ship" },
+        interaction,
+      },
+    );
     expect(outcome).toEqual({ status: "handled" });
     expect(asked).toEqual([{ type: "confirmation", message: "Replace?" }]);
     expect(calls).toEqual([
@@ -354,7 +363,10 @@ describe("catalog commands", () => {
         }),
       ),
     });
-    const outcome = await whistle.execute("goal:goal", { origin: "agent" });
+    const outcome = await whistle.execute(
+      { namespace: "goal", id: "goal" },
+      { origin: "agent" },
+    );
     expect(outcome).toMatchObject({
       status: "failed",
       error: { code: "interaction_required" },
@@ -394,7 +406,10 @@ describe("catalog commands", () => {
       ),
     });
     const { interaction } = scriptedInteraction(["1"]);
-    await whistle.execute("loop:loop", { origin: "slash", interaction });
+    await whistle.execute(
+      { namespace: "loop", id: "loop" },
+      { origin: "slash", interaction },
+    );
     expect(calls).toEqual([{ action: "stop" }]);
   });
 });

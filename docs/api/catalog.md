@@ -174,6 +174,18 @@ const WhistleCatalogStepSchema: ZodPipe<ZodDiscriminatedUnion<[ZodObject<{
      confirmLabel: ZodOptional<ZodPipe<..., ...>>;
      cancelLabel: ZodOptional<ZodPipe<..., ...>>;
      destructive: ZodOptional<ZodLiteral<...>>;
+   }, $strict>, ZodObject<{
+     summary: ZodOptional<ZodPipe<..., ...>>;
+     facts: ZodOptional<ZodArray<...>>;
+     body: ZodOptional<ZodPipe<..., ...>>;
+     bodyLabel: ZodOptional<ZodPipe<..., ...>>;
+     details: ZodOptional<ZodArray<...>>;
+     type: ZodLiteral<"decision">;
+     message: ZodPipe<ZodLazy<...>, ZodString>;
+     options: ZodArray<ZodObject<..., ...>>;
+     multiple: ZodOptional<ZodBoolean>;
+     other: ZodOptional<ZodObject<..., ...>>;
+     escape: ZodOptional<ZodPipe<..., ...>>;
   }, $strict>], "type">;
   notice: ZodOptional<ZodLazy<ZodDiscriminatedUnion<[ZodObject<{
      type: ...;
@@ -222,6 +234,24 @@ const WhistleCatalogStepSchema: ZodPipe<ZodDiscriminatedUnion<[ZodObject<{
   | Readonly<{
   type: "prompt";
   prompt:   | {
+     summary?: string;
+     facts?: object[];
+     body?: string;
+     bodyLabel?: string;
+     details?: object[];
+     type: "decision";
+     message: string;
+     options: object[];
+     multiple?: boolean;
+     other?: {
+        label: string;
+        placeholder?: string;
+        maxLength: number;
+        blank?: string;
+     };
+     escape?: string;
+   }
+     | {
      summary?: string;
      facts?: object[];
      body?: string;
@@ -306,6 +336,24 @@ const WhistleCatalogStepSchema: ZodPipe<ZodDiscriminatedUnion<[ZodObject<{
   | {
   type: "prompt";
   prompt:   | {
+     summary?: string;
+     facts?: object[];
+     body?: string;
+     bodyLabel?: string;
+     details?: object[];
+     type: "decision";
+     message: string;
+     options: object[];
+     multiple?: boolean;
+     other?: {
+        label: string;
+        placeholder?: string;
+        maxLength: number;
+        blank?: string;
+     };
+     escape?: string;
+   }
+     | {
      summary?: string;
      facts?: object[];
      body?: string;

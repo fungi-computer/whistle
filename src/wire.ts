@@ -281,11 +281,26 @@ const WhistleAgentActionSchema = z.lazy(() =>
     .strict(),
 );
 
+/**
+ * Whistle's opaque handle for one admitted command: a render or dedupe key.
+ * Only Whistle mints one (a wire row carries one a Whistle minted); never
+ * build or parse it, and name and execute a command by its typed key.
+ */
+export const WhistleCommandIdSchema = z
+  .string()
+  .min(1)
+  .brand<"WhistleCommandId">();
+
+/** Whistle's opaque handle for one admitted command. */
+export type WhistleCommandId = z.output<typeof WhistleCommandIdSchema>;
+
 /** One neutral agent row emitted by Whistle's `snapshot.agent` projection. */
 export const WhistleAgentProjectionSchema = z.lazy(() =>
   z
     .object({
-      commandId: z.string(),
+      // A handle minted by the Whistle that emitted this row.
+      commandId: WhistleCommandIdSchema,
+      command: z.object({ namespace: z.string(), id: z.string() }).strict(),
       sourceId: z.string(),
       scope: z.string().optional(),
       title: z.string(),
@@ -387,6 +402,59 @@ export const WhistlePromptSchema = z.discriminatedUnion("type", [
       destructive: z.literal(true).optional(),
     })
     .strict(),
+  z
+    .object({
+      /** Options to pick from, with an Other line, answered in the composer. */
+      type: z.literal("decision"),
+      message: promptTitle,
+      ...modalFields,
+      /** The offered choices, recommended first; each `value` is unique. */
+      options: z
+        .array(
+          z
+            .object({
+              value: shortText,
+              label: shortText,
+              description: shortText.optional(),
+              /** Drawn in the error tone. */
+              destructive: z.literal(true).optional(),
+            })
+            .strict(),
+        )
+        .min(1)
+        .max(8)
+        .refine(
+          (options) =>
+            new Set(options.map((option) => option.value)).size ===
+            options.length,
+          "Decision option values must be unique",
+        ),
+      /** More than one option may be picked. */
+      multiple: z.boolean().optional(),
+      /** The last row, where the person writes their own answer; absent when only the options are offered. */
+      other: z
+        .object({
+          label: shortText,
+          placeholder: shortText.optional(),
+          maxLength: z.number().int().min(1).max(interactionTextLimit),
+          /** The option `value` answered when Enter is pressed on this row with nothing written. */
+          blank: shortText.optional(),
+        })
+        .strict()
+        .optional(),
+      /** The option `value` Esc answers; without it Esc postpones the decision. */
+      escape: shortText.optional(),
+    })
+    .strict()
+    .refine(
+      (prompt) =>
+        [prompt.escape, prompt.other?.blank].every(
+          (value) =>
+            value === undefined ||
+            prompt.options.some((option) => option.value === value),
+        ),
+      "A decision's escape and blank answers must be offered options",
+    ),
 ]);
 /** A renderer-neutral interaction prompt. */
 export type WhistlePrompt = ReadonlySchemaValue<
@@ -443,11 +511,21 @@ export const parsePrompt: typeof WhistlePromptSchema.parse = (value) =>
 export const parseNotice: typeof WhistleNoticeSchema.parse = (value) =>
   WhistleNoticeSchema.parse(value);
 
+/** The answer to a `decision` prompt: picked option values and/or written text. */
+export type WhistleDecisionAnswer = {
+  selected: string[];
+  text?: string;
+};
+
+/** Every value a renderer may hand back as the answer to a prompt. */
+export type WhistleAnswerValue = string | boolean | WhistleDecisionAnswer;
+
 /** Answer types owned by the closed prompt vocabulary. */
 export type WhistlePromptAnswers = {
   confirmation: boolean;
   text: string;
   choice: string;
+  decision: WhistleDecisionAnswer;
 };
 
 /** A prompt and its discriminator remain correlated through generic dispatch. */
@@ -462,6 +540,40 @@ type PromptAnswerSchemas = {
 };
 
 const answerSchemas: PromptAnswerSchemas = {
+  decision: (prompt) => {
+    const request = WhistlePromptSchema.options[3].parse(prompt);
+    const offered = new Set(request.options.map((option) => option.value));
+    return z
+      .object({
+        selected: z.array(z.string()).max(request.options.length),
+        text: z.exactOptional(
+          meaningful.pipe(z.string().max(request.other?.maxLength ?? 1)),
+        ),
+      })
+      .strict()
+      .superRefine((answer, context) => {
+        const issue = (message: string) => {
+          context.addIssue({ code: "custom", message });
+        };
+        if (
+          answer.selected.some((value) => !offered.has(value)) ||
+          new Set(answer.selected).size !== answer.selected.length
+        )
+          issue("Pick each offered option at most once");
+        if (request.multiple !== true && answer.selected.length > 1)
+          issue("Pick one option");
+        if (answer.selected.length === 0 && answer.text === undefined)
+          issue("Pick an option or write an answer");
+        if (request.other === undefined && answer.text !== undefined)
+          issue("This decision takes no written answer");
+        if (
+          request.multiple !== true &&
+          answer.selected.length > 0 &&
+          answer.text !== undefined
+        )
+          issue("Pick an option or write an answer, not both");
+      });
+  },
   confirmation: (prompt) => {
     WhistlePromptSchema.options[2].parse(prompt);
     return z.boolean();
@@ -484,7 +596,7 @@ const answerSchemas: PromptAnswerSchemas = {
 /** Capture a prompt's parsed answer contract before handing it to a renderer. */
 export function createPromptAnswerParser<Kind extends WhistlePrompt["type"]>(
   prompt: WhistlePromptOf<Kind>,
-): (value: string | boolean) => WhistlePromptAnswers[Kind] {
+): (value: WhistleAnswerValue) => WhistlePromptAnswers[Kind] {
   const schema = answerSchemas[prompt.type](prompt);
   return (value) => schema.parse(value);
 }
@@ -492,7 +604,7 @@ export function createPromptAnswerParser<Kind extends WhistlePrompt["type"]>(
 /** Parse the answer a human gave to one prompt before the command sees it. */
 export function parsePromptAnswer<Kind extends WhistlePrompt["type"]>(
   prompt: WhistlePromptOf<Kind>,
-  value: string | boolean,
+  value: WhistleAnswerValue,
 ): WhistlePromptAnswers[Kind] {
   return createPromptAnswerParser(prompt)(value);
 }
@@ -501,7 +613,7 @@ export function parsePromptAnswer<Kind extends WhistlePrompt["type"]>(
 export function createPromptAnswerDecoder<Kind extends WhistlePrompt["type"]>(
   prompt: WhistlePromptOf<Kind>,
 ): (
-  value: string | boolean,
+  value: WhistleAnswerValue,
 ) =>
   | Readonly<{ kind: "accepted"; value: WhistlePromptAnswers[Kind] }>
   | Readonly<{ kind: "invalid"; cause: z.ZodError }> {
@@ -517,7 +629,7 @@ export function createPromptAnswerDecoder<Kind extends WhistlePrompt["type"]>(
 /** Decode a human answer without throwing so renderers can handle invalid input. */
 export function decodePromptAnswer<Kind extends WhistlePrompt["type"]>(
   prompt: WhistlePromptOf<Kind>,
-  value: string | boolean,
+  value: WhistleAnswerValue,
 ) {
   return createPromptAnswerDecoder(prompt)(value);
 }

@@ -224,6 +224,40 @@ One link included in a parsed informational notice.
 
 ---
 
+### WhistleDecisionAnswer
+
+```ts
+type WhistleDecisionAnswer = object;
+```
+
+The answer to a `decision` prompt: picked option values and/or written text.
+
+#### Properties
+
+##### selected
+
+```ts
+selected: string[];
+```
+
+##### text?
+
+```ts
+optional text?: string;
+```
+
+---
+
+### WhistleAnswerValue
+
+```ts
+type WhistleAnswerValue = string | boolean | WhistleDecisionAnswer;
+```
+
+Every value a renderer may hand back as the answer to a prompt.
+
+---
+
 ### WhistlePromptAnswers
 
 ```ts
@@ -250,6 +284,12 @@ text: string;
 
 ```ts
 choice: string;
+```
+
+##### decision
+
+```ts
+decision: WhistleDecisionAnswer;
 ```
 
 ---
@@ -747,6 +787,16 @@ Longest prompt answer or message an interaction carries.
 
 ---
 
+### interactionTitleLimit
+
+```ts
+const interactionTitleLimit: 60 = 60;
+```
+
+A modal title: human words, short enough to read at a glance.
+
+---
+
 ### WhistlePromptSchema
 
 ```ts
@@ -867,6 +917,62 @@ const WhistlePromptSchema: ZodDiscriminatedUnion<
       },
       $strict
     >,
+    ZodObject<
+      {
+        summary: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+        facts: ZodOptional<
+          ZodArray<
+            ZodObject<
+              {
+                label: ZodPipe<ZodLazy<ZodString>, ZodString>;
+                value: ZodPipe<ZodLazy<ZodString>, ZodString>;
+              },
+              $strict
+            >
+          >
+        >;
+        body: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+        bodyLabel: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+        details: ZodOptional<
+          ZodArray<
+            ZodObject<
+              {
+                label: ZodPipe<ZodLazy<ZodString>, ZodString>;
+                value: ZodPipe<ZodLazy<ZodString>, ZodString>;
+              },
+              $strict
+            >
+          >
+        >;
+        type: ZodLiteral<"decision">;
+        message: ZodPipe<ZodLazy<ZodString>, ZodString>;
+        options: ZodArray<
+          ZodObject<
+            {
+              value: ZodPipe<ZodLazy<ZodString>, ZodString>;
+              label: ZodPipe<ZodLazy<ZodString>, ZodString>;
+              description: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+              destructive: ZodOptional<ZodLiteral<true>>;
+            },
+            $strict
+          >
+        >;
+        multiple: ZodOptional<ZodBoolean>;
+        other: ZodOptional<
+          ZodObject<
+            {
+              label: ZodPipe<ZodLazy<ZodString>, ZodString>;
+              placeholder: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+              maxLength: ZodNumber;
+              blank: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+            },
+            $strict
+          >
+        >;
+        escape: ZodOptional<ZodPipe<ZodLazy<ZodString>, ZodString>>;
+      },
+      $strict
+    >,
   ],
   "type"
 >;
@@ -936,9 +1042,9 @@ Capture a prompt's parsed answer contract before handing it to a renderer.
 
 #### Type Parameters
 
-| Type Parameter                                              |
-| ----------------------------------------------------------- |
-| `Kind` _extends_ `"text"` \| `"choice"` \| `"confirmation"` |
+| Type Parameter                                                              |
+| --------------------------------------------------------------------------- |
+| `Kind` _extends_ `"text"` \| `"choice"` \| `"confirmation"` \| `"decision"` |
 
 #### Parameters
 
@@ -962,16 +1068,16 @@ Parse the answer a human gave to one prompt before the command sees it.
 
 #### Type Parameters
 
-| Type Parameter                                              |
-| ----------------------------------------------------------- |
-| `Kind` _extends_ `"text"` \| `"choice"` \| `"confirmation"` |
+| Type Parameter                                                              |
+| --------------------------------------------------------------------------- |
+| `Kind` _extends_ `"text"` \| `"choice"` \| `"confirmation"` \| `"decision"` |
 
 #### Parameters
 
 | Parameter | Type                                            |
 | --------- | ----------------------------------------------- |
 | `prompt`  | [`WhistlePromptOf`](#whistlepromptof)\<`Kind`\> |
-| `value`   | `string` \| `boolean`                           |
+| `value`   | [`WhistleAnswerValue`](#whistleanswervalue)     |
 
 #### Returns
 
@@ -997,9 +1103,9 @@ Capture a typed answer decoder; invalid input stays an explicit outcome.
 
 #### Type Parameters
 
-| Type Parameter                                              |
-| ----------------------------------------------------------- |
-| `Kind` _extends_ `"text"` \| `"choice"` \| `"confirmation"` |
+| Type Parameter                                                              |
+| --------------------------------------------------------------------------- |
+| `Kind` _extends_ `"text"` \| `"choice"` \| `"confirmation"` \| `"decision"` |
 
 #### Parameters
 
@@ -1036,16 +1142,16 @@ Decode a human answer without throwing so renderers can handle invalid input.
 
 #### Type Parameters
 
-| Type Parameter                                              |
-| ----------------------------------------------------------- |
-| `Kind` _extends_ `"text"` \| `"choice"` \| `"confirmation"` |
+| Type Parameter                                                              |
+| --------------------------------------------------------------------------- |
+| `Kind` _extends_ `"text"` \| `"choice"` \| `"confirmation"` \| `"decision"` |
 
 #### Parameters
 
 | Parameter | Type                                            |
 | --------- | ----------------------------------------------- |
 | `prompt`  | [`WhistlePromptOf`](#whistlepromptof)\<`Kind`\> |
-| `value`   | `string` \| `boolean`                           |
+| `value`   | [`WhistleAnswerValue`](#whistleanswervalue)     |
 
 #### Returns
 

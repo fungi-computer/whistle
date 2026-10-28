@@ -13,6 +13,9 @@ whistle.contribute({
     },
   ],
 });
-const outcome = await whistle.execute("editor:save", { origin: "palette" });
+const outcome = await whistle.execute(
+  { namespace: "editor", id: "save" },
+  { origin: "palette" },
+);
 if (outcome.status === "handled") console.log(outcome.result); // { saved: true }
 whistle.close();

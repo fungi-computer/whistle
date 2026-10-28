@@ -61,19 +61,25 @@ const lease = whistle.contribute({
 });
 
 const snapshot = whistle.snapshot();
-console.log(snapshot.palette.map((row) => row.commandId)); // ["editor:save"]
+console.log(snapshot.palette.map((row) => row.command)); // [{ namespace: "editor", id: "save" }]
 console.log(snapshot.slash.map((row) => row.alias)); // ["save"]
 
-const outcome = await whistle.execute("editor:save", { origin: "palette" });
+const outcome = await whistle.execute(
+  { namespace: "editor", id: "save" },
+  { origin: "palette" },
+);
 if (outcome.status === "handled") console.log(outcome.result); // { saved: true }
 
 lease.dispose();
 whistle.close();
 ```
 
-A command's canonical ID is `<namespace>:<id>`. Every projection row carries
-that ID, so a palette click, a key press and a slash command all call the same
-`execute`.
+A command is named by its typed key, `{ namespace, id }`. Every projection row
+carries that key as `command`, so a palette click, a key press and a slash
+command all call the same `execute` with it. A row's `commandId` is an opaque
+render key Whistle mints: use it for React keys or dedupe, never build or parse
+it. Namespaces may contain colons (an App surface such as
+`installation:inkcap`); command ids may not.
 
 ### Bind a browser keyboard
 
@@ -145,8 +151,8 @@ follow the same filter. The complete runtime snapshot still lists all scopes.
 
 ### Execution
 
-`execute(commandId, input)` is the only way a handler runs. `input.origin` is
-one of eight closed origins: `agent`, `browser`, `keyboard`, `menu`, `palette`,
+`execute(command, input)` is the only way a handler runs. `input.origin` is one
+of eight closed origins: `agent`, `browser`, `keyboard`, `menu`, `palette`,
 `programmatic`, `slash` and `terminal`. The outcome is one of:
 
 - `handled`: the handler finished. Its return value is in `result`. This does
@@ -304,7 +310,12 @@ whistle.contribute({
 
 console.log(whistle.snapshot().palette[0]?.availability);
 // { status: "unavailable", reason: "Sign in first." }
-console.log(await whistle.execute("account:sync", { origin: "agent" }));
+console.log(
+  await whistle.execute(
+    { namespace: "account", id: "sync" },
+    { origin: "agent" },
+  ),
+);
 // { status: "unavailable", reason: "Sign in first." }
 signedIn = true;
 ```
@@ -332,7 +343,10 @@ whistle.contribute({
   ],
 });
 
-const outcome = await whistle.execute("files:open", { origin: "terminal" });
+const outcome = await whistle.execute(
+  { namespace: "files", id: "open" },
+  { origin: "terminal" },
+);
 // { status: "failed", error: { code: "not_found", message: "No such file", details: { path: "a.txt" } } }
 ```
 

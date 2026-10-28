@@ -606,6 +606,12 @@ Re-exports [WhistleActionSchema](wire.md#whistleactionschema)
 
 ---
 
+### WhistleAnswerValue
+
+Re-exports [WhistleAnswerValue](wire.md#whistleanswervalue)
+
+---
+
 ### WhistleAvailability
 
 Re-exports [WhistleAvailability](wire.md#whistleavailability)
@@ -621,6 +627,12 @@ Re-exports [WhistleCommandProjections](wire.md#whistlecommandprojections)
 ### WhistleCommandDefinition
 
 Re-exports [WhistleCommandDefinition](wire.md#whistlecommanddefinition)
+
+---
+
+### WhistleDecisionAnswer
+
+Re-exports [WhistleDecisionAnswer](wire.md#whistledecisionanswer)
 
 ---
 
