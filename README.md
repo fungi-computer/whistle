@@ -106,7 +106,7 @@ whistle.contribute({
   ],
 });
 const keyboard = bindHtmlKeymap(document.body, whistle, "keyboard");
-// Contributions and availability updates refresh the projected key layer.
+// Contributions and lease updates refresh the projected key layer.
 keyboard.dispose();
 whistle.close();
 ```
@@ -181,16 +181,16 @@ non-Error thrown values never cross the execution result.
 ### Interactions
 
 A running command can talk to its human caller through `input.interaction`.
-`prompt` asks one `choice`, `text` (optionally `secret`) or `confirmation`
-question. `notify` shows `info`, `progress`, `handoff` (open a URL, optionally
-enter a code) or `success`. The vocabulary names the kind of answer, never a
-widget.
+`prompt` asks one `choice`, `text` (optionally `secret`), `confirmation` or
+`decision` question. `notify` shows `info`, `progress`, `handoff` (open a URL,
+optionally enter a code) or `success`. The vocabulary names the kind of answer,
+never a widget.
 
 A caller can pass its own interaction. Otherwise `present(presenter)` registers
 the mounted client that opens one for each human-origin execution. Agent and
-programmatic executions get none. Whistle settles the session with `handled`,
-`cancelled` or `failed` when the handler ends. The newest presenter wins until
-its disposer runs.
+programmatic executions get none by default. Whistle settles the session with
+`handled`, `cancelled` or `failed` when the handler ends. The newest presenter
+wins until its disposer runs.
 
 `createWhistleInteractionHost` from `./interaction` is a renderer-neutral store
 for one interaction. It parses every prompt, notice and answer with the `./wire`
@@ -388,13 +388,13 @@ pnpm --filter @fungi.computer/whistle test
   has at most 32 words.
 - A catalog has at most 128 commands, and a catalog flow stops after 16 steps
   with `flow_too_long`. A catalog command that needs a prompt fails with
-  `interaction_required` when there is no interaction, which is always the case
-  for agent and programmatic origins.
-- Prompt and notice text is capped at 8192 characters. A choice prompt has 1 to
-  256 options. Notice URLs must be `http` or `https`.
-- Namespaces must not contain a colon, and command IDs, titles, categories and
-  labels must not be blank. Violations throw a plain `Error` from `contribute`
-  or `lease.update`.
+  `interaction_required` when there is no interaction. Agent and programmatic
+  callers must supply their own if the command needs one.
+- Prompt titles are capped at 60 characters; notice text at 8192. A choice
+  prompt has 1 to 256 options. Notice URLs must be `http` or `https`.
+- Namespaces, command IDs, titles, categories and labels must not be blank.
+  Command IDs must not contain a colon. Violations throw a plain `Error` from
+  `contribute` or `lease.update`.
 - These bounds are defenses inside the implementation. They are not stable API
   promises.
 

@@ -402,6 +402,39 @@ describe("runtime presenter", () => {
     return { presenter, opened, ends };
   }
 
+  it.each(["agent", "programmatic"] as const)(
+    "human origins exclude %s even with a mounted presenter",
+    async (origin) => {
+      const whistle = createWhistle();
+      const { presenter, opened, ends } = recordingPresenter();
+      whistle.present(presenter);
+      whistle.contribute({
+        sourceId: "permissions",
+        namespace: "tui",
+        commands: [
+          {
+            id: "permissions",
+            title: "Permissions",
+            category: "Settings",
+            handler: ({ interaction }) => interaction !== undefined,
+          },
+        ],
+      });
+      try {
+        expect(
+          await whistle.execute(
+            { namespace: "tui", id: "permissions" },
+            { origin },
+          ),
+        ).toEqual({ status: "handled", result: false });
+        expect(opened).toEqual([]);
+        expect(ends).toEqual([]);
+      } finally {
+        whistle.close();
+      }
+    },
+  );
+
   it("gives human executions an interaction and settles it", async () => {
     const whistle = createWhistle();
     const { presenter, opened, ends } = recordingPresenter();
