@@ -48,7 +48,7 @@
     "stranger": "tsx ../../tooling/repository/src/artifacts/cli.ts --repo-root ../.. .",
     "format:check": "node ../../tooling/repository/scripts/format-package-check.mjs",
     "lint:anti-slop": "node ../../tooling/repository/scripts/lint-package-anti-slop.mjs",
-    "test:html": "node test/html.browser.mjs"
+    "test:nightly": "node test/html.browser.mjs"
   },
   "dependencies": {
     "zod": "4.4.3"

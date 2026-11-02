@@ -4,6 +4,7 @@ import { URL } from "node:url";
 import process from "node:process";
 import { build, stop } from "esbuild";
 import { chromium } from "playwright";
+import { launchIsolatedChromium } from "../../../tooling/proof-runner/isolated-chromium.mjs";
 import * as z from "zod";
 
 let server;
@@ -39,7 +40,7 @@ try {
   const address = z
     .object({ port: z.number().int().positive() })
     .parse(server.address());
-  browser = await chromium.launch();
+  browser = await launchIsolatedChromium(chromium, [address.port]);
   const page = await browser.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
