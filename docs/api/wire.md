@@ -158,6 +158,16 @@ Data-only command definition accepted at adapter boundaries.
 
 ---
 
+### WhistleCommandId
+
+```ts
+type WhistleCommandId = z.output<typeof WhistleCommandIdSchema>;
+```
+
+Whistle's opaque handle for one admitted command.
+
+---
+
 ### WhistleAgentProjectionData
 
 ```ts
@@ -679,13 +689,32 @@ Parse one data-only command definition before an adapter creates a command.
 
 ---
 
+### WhistleCommandIdSchema
+
+```ts
+const WhistleCommandIdSchema: $ZodBranded<ZodString, "WhistleCommandId", "out">;
+```
+
+Whistle's opaque handle for one admitted command: a render or dedupe key. Only
+Whistle mints one (a wire row carries one a Whistle minted); never build or
+parse it, and name and execute a command by its typed key.
+
+---
+
 ### WhistleAgentProjectionSchema
 
 ```ts
 const WhistleAgentProjectionSchema: ZodLazy<
   ZodObject<
     {
-      commandId: ZodString;
+      commandId: $ZodBranded<ZodString, "WhistleCommandId", "out">;
+      command: ZodObject<
+        {
+          namespace: ZodString;
+          id: ZodString;
+        },
+        $strict
+      >;
       sourceId: ZodString;
       scope: ZodOptional<ZodString>;
       title: ZodString;
@@ -742,7 +771,11 @@ One neutral agent row emitted by Whistle's `snapshot.agent` projection.
 
 ```ts
 const WhistleAgentProjectionsSchema: ZodArray<ZodLazy<ZodObject<{
-  commandId: ZodString;
+  commandId: $ZodBranded<ZodString, "WhistleCommandId", "out">;
+  command: ZodObject<{
+     namespace: ZodString;
+     id: ZodString;
+  }, $strict>;
   sourceId: ZodString;
   scope: ZodOptional<ZodString>;
   title: ZodString;

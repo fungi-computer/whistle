@@ -306,6 +306,19 @@ One semantic command definition.
 
 ---
 
+### WhistleCommandKey
+
+```ts
+type WhistleCommandKey = Readonly<{
+  namespace: string;
+  id: string;
+}>;
+```
+
+The typed identity of one command: its contribution namespace and local id.
+
+---
+
 ### WhistleContribution
 
 ```ts
@@ -325,7 +338,8 @@ One contribution of source-owned commands to a namespace.
 
 ```ts
 type WhistleProjectionRow = Readonly<{
-  commandId: string;
+  commandId: WhistleCommandId;
+  command: WhistleCommandKey;
   sourceId: string;
   scope?: string;
   title: string;
@@ -449,7 +463,7 @@ An idempotent lease for one contribution generation.
 type WhistleRuntime = Readonly<{
   contribute: (contribution) => WhistleContributionLease;
   close: () => undefined;
-  execute: (commandId, input) => Promise<WhistleExecutionOutcome>;
+  execute: (command, input) => Promise<WhistleExecutionOutcome>;
   snapshot: () => WhistleSnapshot;
   subscribe: (listener) => () => void;
   present: (presenter) => () => void;
@@ -522,6 +536,27 @@ type WhistleKeymapHost = Readonly<{
 Minimal registration surface implemented by a maintained host keymap.
 
 ## Functions
+
+### sameWhistleCommand()
+
+```ts
+function sameWhistleCommand(left, right): boolean;
+```
+
+Whether two typed command identities name the same command.
+
+#### Parameters
+
+| Parameter | Type                                      |
+| --------- | ----------------------------------------- |
+| `left`    | [`WhistleCommandKey`](#whistlecommandkey) |
+| `right`   | [`WhistleCommandKey`](#whistlecommandkey) |
+
+#### Returns
+
+`boolean`
+
+---
 
 ### scopeSnapshot()
 
@@ -615,6 +650,12 @@ Re-exports [WhistleAnswerValue](wire.md#whistleanswervalue)
 ### WhistleAvailability
 
 Re-exports [WhistleAvailability](wire.md#whistleavailability)
+
+---
+
+### WhistleCommandId
+
+Re-exports [WhistleCommandId](wire.md#whistlecommandid)
 
 ---
 
