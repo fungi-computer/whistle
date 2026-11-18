@@ -1,36 +1,17 @@
 # Whistle (`@fungi.computer/whistle`)
 
-Whistle is a typed command graph for apps that expose the same actions in many
-places. You write one command definition. Whistle derives six immutable views
-from it: key bindings, command palette, slash commands, help, menu, and an agent
-view for AI tools. Every caller, from a key press to an agent, runs the command
-through one typed `execute` door and gets one typed outcome back.
+Whistle lets an app define a command once and show it everywhere: a key binding,
+a command palette, a slash command, help, a menu and an AI tool.
 
-Use it when a keyboard shortcut, a palette entry, a `/slash` command and an
-agent tool should all mean the same action, show the same availability, and fail
-the same way. Whistle owns the command graph. Your host keeps key matching,
-rendering, transport, authorization, and the real work.
-
-## Install or set up
-
-```sh
-npm install @fungi.computer/whistle
+```mermaid
+flowchart LR
+  Def[One command definition] --> Whistle
+  Whistle --> Keys[Key bindings]
+  Whistle --> Palette[Command palette]
+  Whistle --> Slash[Slash commands]
+  Whistle --> Agent[Agent tool view]
+  Keys & Palette & Slash & Agent -->|one typed execute door| Outcome[One typed outcome]
 ```
-
-Whistle is an ESM package with Zod as its only runtime dependency. It runs in
-Node, browsers, and Workers. It has five entrypoints:
-
-- `@fungi.computer/whistle`: the runtime, `scopeSnapshot`, the keymap adapter,
-  and the command types.
-- `@fungi.computer/whistle/wire`: Zod schemas and parsers for command
-  definitions, prompts, notices, and prompt answers.
-- `@fungi.computer/whistle/interaction`: a renderer-neutral interaction store.
-- `@fungi.computer/whistle/catalog`: parses a backend's `whistle.catalog/v1`
-  command catalog and turns it into commands.
-
-- `@fungi.computer/whistle/html`: binds command projections to a DOM keymap.
-  HTML users install the optional peer `@opentui/keymap@0.5.10`; core users do
-  not need it.
 
 ## Quick start
 
@@ -114,6 +95,61 @@ whistle.close();
 `dispose` removes the Whistle layer and subscription, and can be called twice.
 The underlying HTML keymap host follows the document's lifetime; this helper
 does not remove its DOM listeners. Commands still execute through Whistle.
+
+## Common tasks
+
+### Register a command
+
+`whistle.contribute` adds it to the palette, slash and key surfaces. See the
+Quick start.
+
+### Bind a browser keyboard
+
+See [Bind a browser keyboard](#bind-a-browser-keyboard).
+
+### Show a command as unavailable
+
+See [Availability](#availability) and Examples.
+
+### Handle failures
+
+See [Failures](#failures).
+
+## Reference
+
+### Overview
+
+Whistle is a typed command graph for apps that expose the same actions in many
+places. You write one command definition. Whistle derives six immutable views
+from it: key bindings, command palette, slash commands, help, menu, and an agent
+view for AI tools. Every caller, from a key press to an agent, runs the command
+through one typed `execute` door and gets one typed outcome back.
+
+Use it when a keyboard shortcut, a palette entry, a `/slash` command and an
+agent tool should all mean the same action, show the same availability, and fail
+the same way. Whistle owns the command graph. Your host keeps key matching,
+rendering, transport, authorization, and the real work.
+
+## Install or set up
+
+```sh
+npm install @fungi.computer/whistle
+```
+
+Whistle is an ESM package with Zod as its only runtime dependency. It runs in
+Node, browsers, and Workers. It has five entrypoints:
+
+- `@fungi.computer/whistle`: the runtime, `scopeSnapshot`, the keymap adapter,
+  and the command types.
+- `@fungi.computer/whistle/wire`: Zod schemas and parsers for command
+  definitions, prompts, notices, and prompt answers.
+- `@fungi.computer/whistle/interaction`: a renderer-neutral interaction store.
+- `@fungi.computer/whistle/catalog`: parses a backend's `whistle.catalog/v1`
+  command catalog and turns it into commands.
+
+- `@fungi.computer/whistle/html`: binds command projections to a DOM keymap.
+  HTML users install the optional peer `@opentui/keymap@0.5.10`; core users do
+  not need it.
 
 ## Core concepts
 
